@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-
 import { Button } from "@/components/ui/button"
 import { Settings, CheckCircle, CircleDashedIcon, Pill, Utensils, Repeat, Mic, CalendarDays } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { CalendarTimeline } from "@/components/calendar-timeline"
+import { authState } from "@/lib/auth-state"
 
 interface SharedDashboardProps {
   userType: "familiar" | "admin"
@@ -37,6 +37,7 @@ export function SharedDashboard({ userType }: SharedDashboardProps) {
   const [emergenciaParaResolver, setEmergenciaParaResolver] = useState<string | null>(null)
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false)
   const [lembretesCompletos, setLembretesCompletos] = useState<Set<string>>(sharedState.getLembretesCompletos())
+  const [user, setUser] = useState(authState.getCurrentUser())
 
   useEffect(() => {
     const unsubscribe = sharedState.subscribe(() => {
@@ -46,8 +47,15 @@ export function SharedDashboard({ userType }: SharedDashboardProps) {
       setLembretesCompletos(new Set(sharedState.getLembretesCompletos()))
     })
 
+    const unsubscribeAuth = authState.subscribe(() => {
+      setUser(authState.getCurrentUser())
+    })
+
     setBotaoEmergenciaAtivo(sharedState.getPreferencias().botaoEmergenciaAtivo)
-    return unsubscribe
+    return () => {
+      unsubscribe()
+      unsubscribeAuth()
+    }
   }, [])
 
   const getTipoIcon = (tipo: string) => {
@@ -78,7 +86,6 @@ export function SharedDashboard({ userType }: SharedDashboardProps) {
     return lembretes.filter((l) => {
       const lembreteData = l.data instanceof Date ? l.data : new Date(l.data)
 
-      // For "Única" repetition (including lembrete-voz), only show on the exact date
       if (l.repeticao === "Única" || l.tipo === "lembrete-voz") {
         return (
           lembreteData.getDate() === hoje.getDate() &&
@@ -87,12 +94,10 @@ export function SharedDashboard({ userType }: SharedDashboardProps) {
         )
       }
 
-      // For "Semanal", show on matching days of the week
       if (l.repeticao === "Semanal" && l.diasSemana) {
         return l.diasSemana.includes(hoje.getDay())
       }
 
-      // For "Diária" or no repeticao, always show
       return true
     })
   }
@@ -130,18 +135,15 @@ export function SharedDashboard({ userType }: SharedDashboardProps) {
     setLembreteParaEditar(undefined)
   }
 
-  // They can only VIEW the completion status set by the elderly
-
   const emergenciaAtiva = emergencias.find((e) => !e.resolvido)
   const lembretesVozHoje = filterLembretesParaHoje(lembretes.filter((l) => l.tipo === "lembrete-voz"))
   const lembretesRegularesHoje = filterLembretesParaHoje(lembretes.filter((l) => l.tipo !== "lembrete-voz"))
   const limiteVozAtingido = lembretes.filter((l) => l.tipo === "lembrete-voz").length >= 2
-  const nomeUsuario = userType === "admin" ? "Admin" : "Familiar"
+  const nomeUsuario = user?.nome || (userType === "admin" ? "Admin" : "Familiar")
 
   return (
     <>
       <div className="relative min-h-screen overflow-hidden bg-gray-100 dark:bg-gray-900 my-[-28px]">
-        {/* Background */}
         <div
           aria-hidden
           className="pointer-events-none
@@ -150,7 +152,6 @@ export function SharedDashboard({ userType }: SharedDashboardProps) {
             bg-gradient-to-br from-blue-500 via-teal-500 to-teal-400"
         />
 
-        {/* CONTEÚDO */}
         <div className="relative z-10 pt-56 md:pt-64">
           <div className="w-full px-0 md:px-0">
             <div className="flex items-center justify-between mb-25 mt-[-105px] px-[23px] mb-0">
@@ -333,7 +334,6 @@ export function SharedDashboard({ userType }: SharedDashboardProps) {
         </div>
       </div>
 
-      {/* MODAIS */}
       <LembreteModal
         open={modalOpen}
         onOpenChange={setModalOpen}

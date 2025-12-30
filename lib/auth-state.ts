@@ -26,7 +26,7 @@ interface IdosoAccount {
   cpf: string
   tipo: "idoso"
   dataCriacao: Date
-  cadastradoPor: string // admin id
+  cadastradoPor: string
 }
 
 type Account = AdminAccount | FamiliarAccount | IdosoAccount
@@ -103,7 +103,6 @@ export const authState = {
   },
 
   registerIdoso: (nome: string, cpf: string, adminId: string) => {
-    // Generate a 6-digit code
     const codigo = Math.floor(100000 + Math.random() * 900000).toString()
     const newAccount: IdosoAccount = {
       id: Date.now().toString(),
@@ -150,7 +149,6 @@ export const authState = {
   },
 
   loginWithGoogle: () => {
-    // Mock Google login - in future, integrate with real OAuth
     const mockAccount: AdminAccount = {
       id: "google-" + Date.now().toString(),
       nome: "Usuário Google",
@@ -175,6 +173,37 @@ export const authState = {
 
   // Get current user
   getCurrentUser: () => state.currentUser,
+
+  updateUserName: (newName: string) => {
+    if (!state.currentUser) return null
+
+    // Update in accounts array
+    const accountIndex = state.accounts.findIndex((acc) => acc.id === state.currentUser!.id)
+    if (accountIndex !== -1) {
+      state.accounts[accountIndex].nome = newName
+    }
+
+    // Update current user
+    state.currentUser.nome = newName
+
+    saveToStorage()
+    authState.notify()
+    return state.currentUser
+  },
+
+  deleteProfile: () => {
+    if (!state.currentUser) return false
+
+    // Remove from accounts array
+    state.accounts = state.accounts.filter((acc) => acc.id !== state.currentUser!.id)
+
+    // Clear current user
+    state.currentUser = null
+
+    saveToStorage()
+    authState.notify()
+    return true
+  },
 
   // Check if email exists
   emailExists: (email: string) => {
