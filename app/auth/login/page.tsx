@@ -12,6 +12,7 @@ import { authState } from "@/lib/auth-state"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Mail, Lock, Key } from "lucide-react"
+import {authService} from "@/service/auth.service"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -19,35 +20,61 @@ export default function LoginPage() {
   const [senha, setSenha] = useState("")
   const [codigo, setCodigo] = useState("")
   const [error, setError] = useState("")
+  const [tab, setTab] = useState<"email" | "codigo">("email")
 
-  const handleEmailLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
 
-    const user = authState.loginWithEmail(email, senha)
-    if (user) {
-      // Redirect based on user type
-      if (user.tipo === "admin") {
-        router.push("/admin/dashboard")
-      } else {
-        router.push("/familiar/dashboard")
-      }
-    } else {
-      setError("Email ou senha incorretos")
+  // const handleEmailLogin = (e: React.FormEvent) => {
+  //   e.preventDefault()
+  //   setError("")
+
+  //   const user = authState.loginWithEmail(email, senha)
+  //   if (user) {
+  //     // Redirect based on user type
+  //     if (user.tipo === "admin") {
+  //       router.push("/admin/dashboard")
+  //     } else {
+  //       router.push("/familiar/dashboard")
+  //     }
+  //   } else {
+  //     setError("Email ou senha incorretos")
+  //   }
+  // }
+  const handleLogin = async () => {
+    try {
+      setError("")
+
+      await authService.login(email, senha)
+
+      setTab("codigo") 
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.message ||
+        "Erro ao realizar login"
+      )
     }
   }
 
-  const handleCodeLogin = (e: React.FormEvent) => {
+
+
+  const handleCodeLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
-    const user = authState.loginWithCode(codigo)
-    if (user) {
-      router.push("/idoso/dashboard")
-    } else {
-      setError("Código inválido")
+    try {
+      const { data } = await authService.verifyOTP(email, codigo)
+
+
+      sessionStorage.setItem("token", data.token)
+
+      router.push("/dashboard")
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.message ||
+        "Código inválido ou expirado"
+      )
     }
-  }
+}
+
 
   const handleGoogleLogin = () => {
     const user = authState.loginWithGoogle()
@@ -66,14 +93,17 @@ export default function LoginPage() {
           <CardDescription className="text-base">Entre na sua conta</CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
-          <Tabs defaultValue="email" className="w-full">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as "email" | "codigo")} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="email">Email</TabsTrigger>
               <TabsTrigger value="codigo">Idoso</TabsTrigger>
             </TabsList>
 
             <TabsContent value="email">
-              <form onSubmit={handleEmailLogin} className="space-y-4">
+              <form onSubmit={(e)=>{
+                e.preventDefault()
+                handleLogin()
+              }} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email" className="flex items-center gap-2">
                     <Mail className="w-4 h-4" />
@@ -155,36 +185,28 @@ export default function LoginPage() {
 
             <TabsContent value="codigo">
               <form onSubmit={handleCodeLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="codigo" className="flex items-center gap-2">
-                    <Key className="w-4 h-4" />
-                    Código de Acesso
-                  </Label>
-                  <Input
-                    id="codigo"
-                    type="text"
-                    placeholder="123456"
-                    value={codigo}
-                    onChange={(e) => setCodigo(e.target.value)}
-                    required
-                    maxLength={6}
-                    className="h-12 text-center text-2xl tracking-widest"
-                  />
-                  <p className="text-xs text-muted-foreground text-center">
-                    Digite o código de 6 dígitos fornecido pelo administrador
-                  </p>
-                </div>
+                <Label className="flex items-center gap-2">
+                  <Key className="w-4 h-4" />
+                  Código de verificação
+                </Label>
+
+                <Input
+                  value={codigo}
+                  onChange={(e) => setCodigo(e.target.value)}
+                  maxLength={6}
+                  required
+                  className="h-12 text-center text-2xl tracking-widest"
+                  placeholder="123456"
+                />
 
                 {error && <p className="text-sm text-red-500 text-center">{error}</p>}
 
-                <Button
-                  type="submit"
-                  className="w-full h-12 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600"
-                >
-                  Entrar como Idoso
+                <Button type="submit" className="w-full h-12">
+                  Verificar código
                 </Button>
               </form>
             </TabsContent>
+
           </Tabs>
 
           <div className="mt-6 text-center">
