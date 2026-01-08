@@ -40,13 +40,14 @@ export default function LoginPage() {
       // guarda contexto temporário
       sessionStorage.setItem(
         "login_context",
-        JSON.stringify({ email, role: data.role })
+        JSON.stringify({ email, role: data.role, data })
       )
 
       setStep("otp")
     } catch (err: any) {
       setError(err?.response?.data?.message || "Erro ao realizar login")
     }
+    
   }
 
   /* ================= OTP ================= */
