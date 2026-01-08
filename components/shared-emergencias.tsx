@@ -28,7 +28,9 @@ export function SharedEmergencias() {
     const unsubscribe = sharedState.subscribe(() => {
       setEmergencias(sharedState.getEmergencias())
     })
-    return unsubscribe
+    return () => {
+      unsubscribe()
+    }
   }, [])
 
   const handleAbrirDialogResolver = (id: string) => {

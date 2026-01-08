@@ -27,7 +27,9 @@ export function SharedLembretes({ userType }: SharedLembretesProps) {
       setLembretes(sharedState.getLembretes())
       setLembretesCompletos(new Set(sharedState.getLembretesCompletos()))
     })
-    return unsubscribe
+    return () =>{
+      unsubscribe()
+    }
   }, [])
 
   const getTipoIcon = (tipo: string) => {

@@ -18,6 +18,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import { authService } from "@/service/auth.service"
+import { setSessionUser } from "@/lib/auth-state"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -60,6 +61,7 @@ export default function LoginPage() {
       document.cookie = `token=${data.token}; path=/`
 
       const payload = JSON.parse(atob(data.token.split(".")[1]))
+      setSessionUser(data.user)
 
       if (payload.role === "ADMIN") {
         router.push("/admin/dashboard")

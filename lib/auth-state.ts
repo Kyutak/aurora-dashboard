@@ -10,17 +10,29 @@ export interface SessionUser {
   status: string
 }
 
+const STORAGE_KEY = "login_context"
+
 export function getSessionUser(): SessionUser | null {
   if (typeof window === "undefined") return null
 
-  const stored = sessionStorage.getItem("user")
+  const stored = sessionStorage.getItem(STORAGE_KEY)
   if (!stored) return null
 
   try {
-    return JSON.parse(stored) as SessionUser
+    const parsed = JSON.parse(stored)
+
+    // 👇 EXTRAÇÃO CORRETA
+    return parsed?.data?.user ?? null
   } catch {
     return null
   }
+}
+
+export function setSessionUser(user: SessionUser) {
+  if (typeof window === "undefined") return
+
+  sessionStorage.setItem("user", JSON.stringify(user))
+  window.dispatchEvent(new Event("session-user-changed"))
 }
 
 export function getUserLabel(role?: UserRole) {

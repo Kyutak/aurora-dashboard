@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { CalendarTimeline } from "@/components/calendar-timeline"
-import { authState } from "@/lib/auth-state"
+import { getSessionUser, getUserLabel, SessionUser } from "@/lib/auth-state"
 
 interface SharedDashboardProps {
   userType: "familiar" | "admin"
@@ -37,26 +37,23 @@ export function SharedDashboard({ userType }: SharedDashboardProps) {
   const [emergenciaParaResolver, setEmergenciaParaResolver] = useState<string | null>(null)
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false)
   const [lembretesCompletos, setLembretesCompletos] = useState<Set<string>>(sharedState.getLembretesCompletos())
-  const [user, setUser] = useState(authState.getCurrentUser())
+  const [user, setUser] = useState<SessionUser | null>(null)
+
 
   useEffect(() => {
-    const unsubscribe = sharedState.subscribe(() => {
-      setEmergencias(sharedState.getEmergencias())
-      setLembretes(sharedState.getLembretes())
-      setBotaoEmergenciaAtivo(sharedState.getPreferencias().botaoEmergenciaAtivo)
-      setLembretesCompletos(new Set(sharedState.getLembretesCompletos()))
-    })
+      const syncUser = () => {
+        setUser(getSessionUser())
+      }
 
-    const unsubscribeAuth = authState.subscribe(() => {
-      setUser(authState.getCurrentUser())
-    })
+      syncUser()
 
-    setBotaoEmergenciaAtivo(sharedState.getPreferencias().botaoEmergenciaAtivo)
-    return () => {
-      unsubscribe()
-      unsubscribeAuth()
-    }
-  }, [])
+      window.addEventListener("session-user-changed", syncUser)
+
+      return () => {
+        window.removeEventListener("session-user-changed", syncUser)
+      }
+}, [])
+
 
   const getTipoIcon = (tipo: string) => {
     switch (tipo) {
@@ -139,7 +136,9 @@ export function SharedDashboard({ userType }: SharedDashboardProps) {
   const lembretesVozHoje = filterLembretesParaHoje(lembretes.filter((l) => l.tipo === "lembrete-voz"))
   const lembretesRegularesHoje = filterLembretesParaHoje(lembretes.filter((l) => l.tipo !== "lembrete-voz"))
   const limiteVozAtingido = lembretes.filter((l) => l.tipo === "lembrete-voz").length >= 2
-  const nomeUsuario = user?.nome || (userType === "admin" ? "Admin" : "Familiar")
+  const nomeUsuario = user?.name ?? "Usuário"
+  const tipoUsuario = user ? getUserLabel(user.role) : ""
+
 
   return (
     <>
@@ -161,6 +160,7 @@ export function SharedDashboard({ userType }: SharedDashboardProps) {
                 </div>
                 <div>
                   <h1 className="md:text-3xl font-bold text-white drop-shadow-lg text-3xl">Olá, {nomeUsuario}</h1>
+                  <p className="text-white/90 md:text-base drop-shadow text-base"> Tipo de Usuário: {tipoUsuario}</p>
                   <p className="text-white/90 md:text-base drop-shadow text-base">Boa tarde!</p>
                 </div>
               </div>
