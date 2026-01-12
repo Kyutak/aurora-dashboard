@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { authState } from "@/lib/auth-state"
+import { setSessionUser } from "@/lib/auth-state"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { User, Mail, Lock, CreditCard } from "lucide-react"
@@ -37,18 +37,7 @@ export default function RegisterPage() {
     setError("")
     setSuccess("")
 
-    if (authState.emailExists(adminEmail)) {
-      setError("Este email já está cadastrado")
-      return
-    }
-
-    const user = authState.registerAdmin(adminNome, adminEmail, adminSenha)
-    setSuccess("Conta criada com sucesso! Redirecionando...")
-
-    setTimeout(() => {
-      authState.loginWithEmail(adminEmail, adminSenha)
-      router.push("/admin/dashboard")
-    }, 1500)
+    
   }
   const handAdminFamiliarRegister = async (name: string, email: string, password: string) => {
     try{

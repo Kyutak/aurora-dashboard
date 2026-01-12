@@ -60,7 +60,7 @@ export default function LoginPage() {
 
       document.cookie = `token=${data.token}; path=/`
 
-      // ✅ salva corretamente no sessionStorage
+      
       setSessionUser({ data })
 
       const role = data.user.role
