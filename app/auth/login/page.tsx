@@ -60,24 +60,26 @@ export default function LoginPage() {
 
       document.cookie = `token=${data.token}; path=/`
 
-      const payload = JSON.parse(atob(data.token.split(".")[1]))
-      setSessionUser(data.user)
+      // ✅ salva corretamente no sessionStorage
+      setSessionUser({ data })
 
-      if (payload.role === "ADMIN") {
+      const role = data.user.role
+
+      if (role === "FAMILIAR") {
         router.push("/admin/dashboard")
       }
-
-      if (payload.role === "FAMILIAR") {
+      if(role === "FAMILIAR_COLABORADOR") {
         router.push("/familiar/dashboard")
       }
 
-      if (payload.role === "IDOSO") {
+      if (role === "IDOSO") {
         router.push("/idoso/dashboard")
       }
     } catch {
       setError("Código inválido ou expirado")
     }
   }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-400 via-emerald-500 to-green-600 flex items-center justify-center p-4">

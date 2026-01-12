@@ -10,7 +10,27 @@ export interface SessionUser {
   status: string
 }
 
-const STORAGE_KEY = "login_context"
+const STORAGE_KEY = "user"
+
+
+export function setSessionUser(response: any) {
+  if (typeof window === "undefined") return
+
+  const user = response?.data?.user
+
+  if (!user) return
+
+  const sessionUser: SessionUser = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+  }
+
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(sessionUser))
+  window.dispatchEvent(new Event("session-user-changed"))
+}
 
 export function getSessionUser(): SessionUser | null {
   if (typeof window === "undefined") return null
@@ -19,19 +39,15 @@ export function getSessionUser(): SessionUser | null {
   if (!stored) return null
 
   try {
-    const parsed = JSON.parse(stored)
-
-    // 👇 EXTRAÇÃO CORRETA
-    return parsed?.data?.user ?? null
+    return JSON.parse(stored) as SessionUser
   } catch {
     return null
   }
 }
 
-export function setSessionUser(user: SessionUser) {
+export function clearSessionUser() {
   if (typeof window === "undefined") return
-
-  sessionStorage.setItem("user", JSON.stringify(user))
+  sessionStorage.removeItem(STORAGE_KEY)
   window.dispatchEvent(new Event("session-user-changed"))
 }
 
