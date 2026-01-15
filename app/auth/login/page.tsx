@@ -30,58 +30,69 @@ export default function LoginPage() {
   const [senha, setSenha] = useState("")
   const [codigo, setCodigo] = useState("")
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
 
   /* ================= LOGIN EMAIL ================= */
   const handleLogin = async () => {
+    if (loading) return
+
     try {
+      setLoading(true)
       setError("")
 
-      const { data } = await authService.login(email, senha)
+      await authService.login(email, senha)
 
-      // guarda contexto temporário
-      sessionStorage.setItem(
-        "login_context",
-        JSON.stringify({ email, role: data.role, data })
-      )
-
+      // backend já enviou o OTP
       setStep("otp")
     } catch (err: any) {
       setError(err?.response?.data?.message || "Erro ao realizar login")
+    } finally {
+      setLoading(false)
     }
-    
   }
 
   /* ================= OTP ================= */
-  const [loading, setLoading] = useState(false)
+  const handleCodeLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (loading) return
 
-    const handleCodeLogin = async (e: React.FormEvent) => {
-      e.preventDefault()
+    try {
+      setLoading(true)
+      setError("")
 
-      if (loading) return // 🔥 trava duplo clique
+      const { data } = await authService.verifyOTP(email, codigo)
 
-      try {
-        setLoading(true)
-        setError("")
+      // salva token
+      document.cookie = `token=${data.token}; path=/`
 
-        const { data } = await authService.verifyOTP(email, codigo)
+      // salva sessão exatamente como a dashboard espera
+      setSessionUser({ data: { user: data.user } })
 
-        document.cookie = `token=${data.token}; path=/`
-        setSessionUser({ data: { user: data.user } })
+      // normaliza role (evita erro silencioso)
+      const role = data.user.role?.trim().toUpperCase()
 
-        const role = data.user.role
-
-        if (role === "FAMILIAR") router.push("/admin/dashboard")
-        if (role === "FAMILIAR_COLABORADOR") router.push("/familiar/dashboard")
-        if (role === "IDOSO") router.push("/idoso/dashboard")
-
-      } catch (err: any) {
-        setError(err?.response?.data?.message || "Código inválido ou expirado")
-      } finally {
-        setLoading(false)
+      if (role === "FAMILIAR") {
+        router.push("/admin/dashboard")
+        return
       }
+
+      if (role === "FAMILIAR_COLABORADOR") {
+        router.push("/familiar/dashboard")
+        return
+      }
+
+      if (role === "IDOSO") {
+        router.push("/idoso/dashboard")
+        return
+      }
+
+      setError("Tipo de usuário não reconhecido")
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Código inválido ou expirado")
+    } finally {
+      setLoading(false)
     }
-
-
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-400 via-emerald-500 to-green-600 flex items-center justify-center p-4">
@@ -139,7 +150,9 @@ export default function LoginPage() {
                     </p>
                   )}
 
-                  <Button className="w-full">Entrar</Button>
+                  <Button className="w-full" disabled={loading}>
+                    {loading ? "Entrando..." : "Entrar"}
+                  </Button>
                 </form>
               )}
 
@@ -166,7 +179,6 @@ export default function LoginPage() {
                   <Button className="w-full" disabled={loading}>
                     {loading ? "Verificando..." : "Verificar código"}
                   </Button>
-
                 </form>
               )}
             </TabsContent>
