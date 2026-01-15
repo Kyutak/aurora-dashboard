@@ -32,12 +32,28 @@ export default function RegisterPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
-  const handleAdminRegister = (e: React.FormEvent) => {
+  const handleAdminRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setSuccess("")
-
-    
+  
+    try {
+      await authService.register(adminNome, adminEmail, adminSenha)
+  
+      setSuccess("Conta criada com sucesso! Redirecionando...")
+  
+      setTimeout(() => {
+        router.push("/auth/login")
+      }, 1500)
+  
+    } catch (err: any) {
+      console.error(err)
+  
+      const message =
+        err?.response?.data?.message || "Erro ao criar conta. Tente novamente."
+  
+      setError(message)
+    }
   }
   const handAdminFamiliarRegister = async (name: string, email: string, password: string) => {
     try{
@@ -49,31 +65,7 @@ export default function RegisterPage() {
     }
   }
 
-  // const handleFamiliarRegister = (e: React.FormEvent) => {
-  //   e.preventDefault()
-  //   setError("")
-  //   setSuccess("")
 
-  //   if (authState.emailExists(familiarEmail)) {
-  //     setError("Este email já está cadastrado")
-  //     return
-  //   }
-
-  //   // Validate CPF format (simplified)
-  //   const cpfLimpo = cpfIdoso.replace(/\D/g, "")
-  //   if (cpfLimpo.length !== 11) {
-  //     setError("CPF inválido. Digite 11 dígitos")
-  //     return
-  //   }
-
-  //   const user = authState.registerFamiliar(familiarNome, familiarEmail, familiarSenha, cpfLimpo)
-  //   setSuccess("Conta criada com sucesso! Redirecionando...")
-
-  //   setTimeout(() => {
-  //     authState.loginWithEmail(familiarEmail, familiarSenha)
-  //     router.push("/familiar/dashboard")
-  //   }, 1500)
-  // }
   const handleFamiliarRegister = async (name: string, email: string, password: string, cpf: string) => {
     try {
       setError("")
