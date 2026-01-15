@@ -62,9 +62,6 @@ export default function LoginPage() {
 
       const { data } = await authService.verifyOTP(email, codigo)
 
-      // salva token
-      document.cookie = `token=${data.token}; path=/`
-
       // salva sessão exatamente como a dashboard espera
       setSessionUser({ data: { user: data.user } })
 
