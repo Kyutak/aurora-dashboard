@@ -15,7 +15,6 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // 🔹 rotas públicas
   if (pathname.startsWith("/auth")) {
     return NextResponse.next()
   }
@@ -33,11 +32,11 @@ export function middleware(req: NextRequest) {
 
     const role = payload.role
 
-    if (pathname.startsWith("/admin") && role !== "ADMIN") {
+    if (pathname.startsWith("/admin") && role !== "FAMILIAR") {
       return NextResponse.redirect(new URL("/auth/login", req.url))
     }
 
-    if (pathname.startsWith("/familiar") && role !== "FAMILIAR") {
+    if (pathname.startsWith("/familiar") && role !== "FAMILIAR_COLABORADOR") {
       return NextResponse.redirect(new URL("/auth/login", req.url))
     }
 

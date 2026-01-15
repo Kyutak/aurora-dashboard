@@ -1,18 +1,26 @@
-import { api } from './api';
+import { api } from "./api";
 
 export const authService = {
-  register(name:string,email:string,password:string) {
-    return api.post('/auth/register',{name,email,password,});
+  register(name: string, email: string, password: string) {
+    return api.post("/auth/register", { name, email, password });
   },
 
   login(email: string, password: string) {
-    return api.post('/auth/login', { email, password });
+    return api.post("/auth/login", {
+      email,
+      password,
+    });
   },
 
   verifyOTP(email: string, code: string) {
-    return api.post('/auth/verify', { email, code });
+    return api.post(
+      "/auth/verify",
+      { email, code },
+      { withCredentials: true }
+    );
   },
-  resendOTP(email:string){
-    return api.post('/auth/resend-otp',{email,});
-  }
-}
+
+  resendOTP(email: string) {
+    return api.post("/auth/resend-otp", { email });
+  },
+};

@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import { authService } from "@/service/auth.service"
 import { setSessionUser } from "@/lib/auth-state"
+import axios from "axios";
 
 export default function LoginPage() {
   const router = useRouter()
