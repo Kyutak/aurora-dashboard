@@ -60,25 +60,26 @@ export default function LoginPage() {
 
       document.cookie = `token=${data.token}; path=/`
 
-      
-      setSessionUser({ data })
+      setSessionUser({ data: { user: data.user } })
 
       const role = data.user.role
 
       if (role === "FAMILIAR") {
         router.push("/admin/dashboard")
       }
-      if(role === "FAMILIAR_COLABORADOR") {
+
+      if (role === "FAMILIAR_COLABORADOR") {
         router.push("/familiar/dashboard")
       }
 
       if (role === "IDOSO") {
         router.push("/idoso/dashboard")
       }
-    } catch {
-      setError("Código inválido ou expirado")
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Código inválido ou expirado")
     }
   }
+
 
 
   return (
