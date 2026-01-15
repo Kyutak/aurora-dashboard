@@ -52,33 +52,34 @@ export default function LoginPage() {
   }
 
   /* ================= OTP ================= */
-  const handleCodeLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const [loading, setLoading] = useState(false)
 
-    try {
-      const { data } = await authService.verifyOTP(email, codigo)
+    const handleCodeLogin = async (e: React.FormEvent) => {
+      e.preventDefault()
 
-      document.cookie = `token=${data.token}; path=/`
+      if (loading) return // 🔥 trava duplo clique
 
-      setSessionUser({ data: { user: data.user } })
+      try {
+        setLoading(true)
+        setError("")
 
-      const role = data.user.role
+        const { data } = await authService.verifyOTP(email, codigo)
 
-      if (role === "FAMILIAR") {
-        router.push("/admin/dashboard")
+        document.cookie = `token=${data.token}; path=/`
+        setSessionUser({ data: { user: data.user } })
+
+        const role = data.user.role
+
+        if (role === "FAMILIAR") router.push("/admin/dashboard")
+        if (role === "FAMILIAR_COLABORADOR") router.push("/familiar/dashboard")
+        if (role === "IDOSO") router.push("/idoso/dashboard")
+
+      } catch (err: any) {
+        setError(err?.response?.data?.message || "Código inválido ou expirado")
+      } finally {
+        setLoading(false)
       }
-
-      if (role === "FAMILIAR_COLABORADOR") {
-        router.push("/familiar/dashboard")
-      }
-
-      if (role === "IDOSO") {
-        router.push("/idoso/dashboard")
-      }
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Código inválido ou expirado")
     }
-  }
 
 
 
@@ -162,7 +163,10 @@ export default function LoginPage() {
                     </p>
                   )}
 
-                  <Button className="w-full">Verificar código</Button>
+                  <Button className="w-full" disabled={loading}>
+                    {loading ? "Verificando..." : "Verificar código"}
+                  </Button>
+
                 </form>
               )}
             </TabsContent>
