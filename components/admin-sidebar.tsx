@@ -26,14 +26,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-
 export function AdminSidebar() {
   const pathname = usePathname()
-  const user = getSessionUser()
 
+  const [mounted, setMounted] = useState(false)
+  const [user, setUser] = useState<any>(null)
   const [botaoEmergenciaAtivo, setBotaoEmergenciaAtivo] = useState(true)
 
   useEffect(() => {
+    setMounted(true)
+
+    setUser(getSessionUser())
+
     const prefs = sharedState.getPreferencias()
     setBotaoEmergenciaAtivo(prefs.botaoEmergenciaAtivo)
 
@@ -47,6 +51,9 @@ export function AdminSidebar() {
     }
   }, [])
 
+  // 🔒 bloqueia render até montar no client
+  if (!mounted) return null
+
   const allLinks = [
     { href: "/admin/dashboard", label: "Home", icon: Home },
     { href: "/admin/lembretes", label: "Lembretes", icon: Clock },
@@ -57,7 +64,6 @@ export function AdminSidebar() {
   const links = botaoEmergenciaAtivo
     ? allLinks
     : allLinks.filter((l) => l.label !== "Emergências")
-
   return (
     <>
       {/* Desktop */}

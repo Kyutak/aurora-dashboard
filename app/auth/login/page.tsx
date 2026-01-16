@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useState } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Mail, Lock, Key } from "lucide-react"
@@ -82,17 +82,17 @@ export default function LoginPage() {
       const role = data.user.role?.trim().toUpperCase()
 
       if (role === "FAMILIAR") {
-        router.push("/admin/dashboard")
+        window.location.href = "/admin/dashboard"
         return
       }
 
       if (role === "FAMILIAR_COLABORADOR") {
-        router.push("/familiar/dashboard")
+        window.location.href = "/familiar/dashboard"
         return
       }
 
       if (role === "IDOSO") {
-        router.push("/idoso/dashboard")
+        window.location.href = "/idoso/dashboard"
         return
       }
 

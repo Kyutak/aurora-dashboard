@@ -25,7 +25,9 @@ export default function AdminLembretesPage() {
     const unsubscribe = sharedState.subscribe(() => {
       setLembretes(sharedState.getLembretes())
     })
-    return unsubscribe
+    return () => {
+      unsubscribe()
+    }
   }, [])
 
   const handleCriarLembrete = (lembrete: any) => {
