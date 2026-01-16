@@ -4,7 +4,6 @@ import type { NextRequest } from "next/server"
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // 🔹 arquivos públicos
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico") ||
@@ -15,7 +14,14 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  if (pathname.startsWith("/auth")) {
+  const publicRouters =[
+    "/",
+    "/auth"
+  ]
+
+  const isPublic = publicRouters.some((route)=> pathname === route || pathname.startsWith(route + "/"))
+
+  if(isPublic){
     return NextResponse.next()
   }
 
