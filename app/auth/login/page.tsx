@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { use, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Mail, Lock, Key } from "lucide-react"
@@ -32,6 +32,10 @@ export default function LoginPage() {
   const [codigo, setCodigo] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  //pop-up
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+  const [popupType, setPopupType] = useState<"success" | "error">("success");
 
   /* ================= LOGIN EMAIL ================= */
   const handleLogin = async () => {
@@ -43,10 +47,18 @@ export default function LoginPage() {
 
       await authService.login(email, senha)
 
+      setPopupType("success");
+      setPopupMessage("Código de verificação foi enviado para seu email");
+      setShowPopup(true);
+
       // backend já enviou o OTP
       setStep("otp")
     } catch (err: any) {
       setError(err?.response?.data?.message || "Erro ao realizar login")
+
+      setPopupType("error");
+      setPopupMessage(err?.response?.data?.message || "Erro ao realizar login");
+      setShowPopup(true);
     } finally {
       setLoading(false)
     }
@@ -199,6 +211,29 @@ export default function LoginPage() {
           </div>
         </CardContent>
       </Card>
+      {/* Pop-up de notificação */}
+      {showPopup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm text-center space-y-4">
+            <h2
+              className={`text-xl font-bold ${
+                popupType === "success" ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              {popupType === "success" ? "Sucesso" : "Erro"}
+            </h2>
+
+            <p className="text-gray-700">{popupMessage}</p>
+            
+            <Button
+              onClick={() => setShowPopup(false)}
+              className="w-full"
+            >
+              OK
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
