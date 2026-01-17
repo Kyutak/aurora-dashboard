@@ -14,7 +14,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  if( pathname.startsWith("/auth") && pathname === "/" ){
+  if( pathname.startsWith("/auth") ){
     return NextResponse.next()
   } 
 
