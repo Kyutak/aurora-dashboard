@@ -14,16 +14,9 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  const publicRouters =[
-    "/",
-    "/auth"
-  ]
-
-  const isPublic = publicRouters.some((route)=> pathname === route || pathname.startsWith(route + "/"))
-
-  if(isPublic){
+  if( pathname.startsWith("/auth") && pathname === "/" ){
     return NextResponse.next()
-  }
+  } 
 
   const token = req.cookies.get("token")?.value
 
