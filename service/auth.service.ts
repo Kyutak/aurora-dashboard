@@ -12,13 +12,6 @@ export const authService = {
     });
   },
 
-  verifyOTP(email: string, code: string) {
-    return api.post(
-      "/auth/verify",
-      { email, code },
-      { withCredentials: true }
-    );
-  },
 
   resendOTP(email: string) {
     return api.post("/auth/resend-otp", { email });

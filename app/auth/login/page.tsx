@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { authService } from "@/service/auth.service"
 import { setSessionUser } from "@/lib/auth-state"
 import axios from "axios";
+import { verifyOTP } from "@/service/verifyOTP.service"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -73,13 +74,13 @@ export default function LoginPage() {
       setLoading(true)
       setError("")
 
-      const { data } = await authService.verifyOTP(email, codigo)
+      const user = await verifyOTP(email, codigo)
 
       // salva sessão exatamente como a dashboard espera
-      setSessionUser({ data: { user: data.user } })
+      setSessionUser({ data: { user } })
 
       // normaliza role (evita erro silencioso)
-      const role = data.user.role?.trim().toUpperCase()
+      const role = user.role?.trim().toUpperCase()
 
       if (role === "FAMILIAR") {
         window.location.href = "/admin/dashboard"
