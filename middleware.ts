@@ -19,9 +19,9 @@ export function middleware(req: NextRequest) {
     "/auth"
   ]
 
-  const isPublic = publicRouters.some((route)=> pathname === route || pathname.startsWith(route + "/"))
+  const IsPublic = publicRouters.some((route)=> pathname === route || pathname.startsWith(route + "/"))
 
-  if(isPublic){
+  if(IsPublic){
     return NextResponse.next()
   }
 
