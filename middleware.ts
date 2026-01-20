@@ -26,10 +26,13 @@ export function middleware(req: NextRequest) {
   }
 
   const token = req.cookies.get("token")?.value
-
+  
   if (!token) {
     return NextResponse.redirect(new URL("/auth/login", req.url))
   }
+
+  const response = NextResponse.next()
+  response.cookies.set("token", token, { httpOnly: true, secure: true, sameSite: "lax" })
 
   try {
     const payload = JSON.parse(
@@ -50,7 +53,7 @@ export function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/auth/login", req.url))
     }
 
-    return NextResponse.next()
+    return response
   } catch {
     return NextResponse.redirect(new URL("/auth/login", req.url))
   }
