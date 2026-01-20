@@ -14,25 +14,21 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  const publicRouters =[
-    "/",
-    "/auth"
-  ]
+  const publicRoutes = ["/", "/auth"]
 
-  const IsPublic = publicRouters.some((route)=> pathname === route || pathname.startsWith(route + "/"))
+  const isPublic = publicRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  )
 
-  if(IsPublic){
+  if (isPublic) {
     return NextResponse.next()
   }
 
   const token = req.cookies.get("token")?.value
-  
+
   if (!token) {
     return NextResponse.redirect(new URL("/auth/login", req.url))
   }
-
-  const response = NextResponse.next()
-  response.cookies.set("token", token, { httpOnly: true, secure: true, sameSite: "lax" })
 
   try {
     const payload = JSON.parse(
@@ -53,7 +49,7 @@ export function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/auth/login", req.url))
     }
 
-    return response
+    return NextResponse.next()
   } catch {
     return NextResponse.redirect(new URL("/auth/login", req.url))
   }
