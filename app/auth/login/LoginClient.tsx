@@ -52,23 +52,22 @@ export default function LoginClient() {
   const handleLogin = async () => {
     if (loading) return
     try {
-      setLoading(true)
-      setError("")
-      await authService.login(email, senha)
-      setPopupType("success")
-      setPopupMessage("Código de verificação enviado para seu email")
-      setShowPopup(true)
-      setStep("otp")
+        setLoading(true)
+        setError("")
+        
+        await authService.login(email, senha)
+
+        setPopupType("success")
+        setPopupMessage("Código de verificação enviado para seu email")
+        setShowPopup(true) // O pop-up deve abrir aqui
+        
+        setTimeout(() => {
+        setStep("otp")
+        }, 500) 
+
     } catch (err: any) {
-      const msg = err?.response?.data?.message || "Erro ao realizar login"
-      setError(msg)
-      setPopupType("error")
-      setPopupMessage(msg)
-      setShowPopup(true)
-    } finally {
-      setLoading(false)
     }
-  }
+    }
 
   const handleCodeLogin = async (e: React.FormEvent) => {
     e.preventDefault()
