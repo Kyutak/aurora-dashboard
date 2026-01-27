@@ -31,49 +31,24 @@ export default function RegisterPage() {
 
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [loading, setLoading] = useState(false)
 
-  const handleAdminRegister = (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setSuccess("")
+  const handleAdminRegister = async (adminNome: string, adminEmail: string, adminSenha: string) => {
 
-    
-  }
-  const handAdminFamiliarRegister = async (name: string, email: string, password: string) => {
-    try{
+    if(loading) return
+    try {
       setError("")
-      await authService.register(name, email, password)
+      await authService.register(adminNome, adminEmail, adminSenha)
+
       setSuccess("Conta criada com sucesso! Redirecionando...")
-    }catch(err){
+      setTimeout(() => {
+        window.location.href = `/auth/login?email=${adminEmail}&otp=true`
+      }, 2000);
+    } catch(err) {
       setError("Erro ao criar conta. Tente novamente."+ err)
     }
   }
 
-  // const handleFamiliarRegister = (e: React.FormEvent) => {
-  //   e.preventDefault()
-  //   setError("")
-  //   setSuccess("")
-
-  //   if (authState.emailExists(familiarEmail)) {
-  //     setError("Este email já está cadastrado")
-  //     return
-  //   }
-
-  //   // Validate CPF format (simplified)
-  //   const cpfLimpo = cpfIdoso.replace(/\D/g, "")
-  //   if (cpfLimpo.length !== 11) {
-  //     setError("CPF inválido. Digite 11 dígitos")
-  //     return
-  //   }
-
-  //   const user = authState.registerFamiliar(familiarNome, familiarEmail, familiarSenha, cpfLimpo)
-  //   setSuccess("Conta criada com sucesso! Redirecionando...")
-
-  //   setTimeout(() => {
-  //     authState.loginWithEmail(familiarEmail, familiarSenha)
-  //     router.push("/familiar/dashboard")
-  //   }, 1500)
-  // }
   const handleFamiliarRegister = async (name: string, email: string, password: string, cpf: string) => {
     try {
       setError("")
@@ -114,7 +89,10 @@ export default function RegisterPage() {
             </TabsList>
 
             <TabsContent value="admin">
-              <form onSubmit={handleAdminRegister} className="space-y-4">
+              <form onSubmit={(e)=>{
+                e.preventDefault(),
+                handleAdminRegister(adminNome, adminEmail, adminSenha)
+              }} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="admin-nome" className="flex items-center gap-2">
                     <User className="w-4 h-4" />
@@ -171,8 +149,9 @@ export default function RegisterPage() {
                 <Button
                   type="submit"
                   className="w-full h-12 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600"
+                  disabled= {loading}
                 >
-                  Criar Conta Admin
+                  {loading ? "Criando conta admin..." : "Entrar"}
                 </Button>
               </form>
             </TabsContent>

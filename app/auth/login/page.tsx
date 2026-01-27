@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Mail, Lock, Key } from "lucide-react"
@@ -21,9 +21,13 @@ import { authService } from "@/service/auth.service"
 import { setSessionUser } from "@/lib/auth-state"
 import axios from "axios";
 import { verifyOTP } from "@/service/verifyOTP.service"
+import { useSearchParams } from "next/navigation"
+
+
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [tab, setTab] = useState<"email" | "idoso">("email")
   const [step, setStep] = useState<"login" | "otp">("login")
@@ -37,6 +41,15 @@ export default function LoginPage() {
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
+  const emailFromRegister = searchParams.get("email")
+  const forceOTP = searchParams.get("otp") === "true"
+    
+  useEffect(() => {
+    if (emailFromRegister && forceOTP) {
+      setEmail(emailFromRegister)
+      setStep("otp")
+    }
+  }, [])
 
   /* ================= LOGIN EMAIL ================= */
   const handleLogin = async () => {

@@ -1,4 +1,5 @@
 "use server"
+
 import { cookies } from 'next/headers'
 import { api } from './api'
 
@@ -27,4 +28,4 @@ export async function verifyOTP(email: string, code: string) {
     cookieStore.set('token', res.data.token, { httpOnly: true, path: '/' })
 
     return res.data.user;
-  }
+}
