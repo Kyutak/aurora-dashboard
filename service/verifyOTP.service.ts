@@ -27,5 +27,5 @@ export async function verifyOTP(email: string, code: string) {
     console.log(res)
     cookieStore.set('token', res.data.token, { httpOnly: true, path: '/' })
 
-    return res.data.user;
+    return {user: res.data.user, token: res.data.token};
 }

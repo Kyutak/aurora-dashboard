@@ -3,9 +3,8 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { UserCheck, Activity, LinkIcon, Crown, Trash2 } from "lucide-react"
+import { UserCheck, Activity, LinkIcon, Crown, Trash2, Users, Loader2 } from "lucide-react"
 import { useState, useEffect } from "react"
-import { sharedState } from "@/lib/shared-state"
 import {
   Dialog,
   DialogContent,
@@ -18,317 +17,256 @@ import { useToast } from "@/hooks/use-toast"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
+import { elderService } from "@/service/elder.service"
+import { authCollaboratorService } from "@/service/collaborator.service" // Ajuste o caminho se necessário
+
 export function AdminPainel() {
   const { toast } = useToast()
-  const [usuarios, setUsuarios] = useState(sharedState.getUsuarios())
+  
+  // ESTADOS DINÂMICOS
+  const [colaboradores, setColaboradores] = useState<any[]>([])
+  const [idosos, setIdosos] = useState<any[]>([])
+  const [isLoadingData, setIsLoadingData] = useState(true)
+  
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false)
   const [showCadastroDialog, setShowCadastroDialog] = useState(false)
+  const [loading, setLoading] = useState(false)
+
   const [formData, setFormData] = useState({
-    nome: "",
+    name: "",
     email: "",
-    senha: "",
+    password: "",
     cpf: "",
+    age: "",
+    birthData: "",
+    emergencyContact: "",
+    createLogin: true
   })
 
-  useEffect(() => {
-    const unsubscribe = sharedState.subscribe(() => {
-      setUsuarios(sharedState.getUsuarios())
-    })
-    return () => {
-      unsubscribe();
+  // 1. FUNÇÃO PARA CARREGAR DADOS DO BACKEND
+  const loadData = async () => {
+    try {
+      setIsLoadingData(true)
+      // Executa as duas buscas em paralelo
+      const [resElders, resCollabs] = await Promise.all([
+        elderService.ALLeldelist(),
+        authCollaboratorService.AllCollaborators()
+      ])
+      
+      setIdosos(resElders.data)
+      setColaboradores(resCollabs.data)
+    } catch (error) {
+      console.error("Erro ao carregar painel:", error)
+      toast({
+        title: "Erro de conexão",
+        description: "Não foi possível carregar os dados do servidor.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingData(false)
     }
+  }
+
+  useEffect(() => {
+    loadData()
   }, [])
 
-  const familiares = usuarios.filter((u) => u.tipo === "familiar")
-  const idosos = usuarios.filter((u) => u.tipo === "idoso")
+  // 2. CADASTRO DE IDOSO COM REFRESH AUTOMÁTICO
+  const handleCadastrarIdoso = async () => {
+    if (!formData.name || !formData.email || !formData.password || !formData.cpf) {
+      toast({ title: "❌ Campos obrigatórios", variant: "destructive" })
+      return
+    }
 
-  const handleEnviarConvite = (tipo: "familiar" | "idoso") => {
-    const link = `https://aurora.app/convite/${tipo}/${Date.now()}`
+    try {
+      setLoading(true)
+      const payload = {
+        ...formData,
+        age: Number(formData.age),
+        medicalConditions: [],
+        medications: []
+      }
+
+      await elderService.create(payload)
+
+      toast({
+        title: "✅ Idoso Cadastrado",
+        description: `${formData.name} foi adicionado com sucesso!`,
+      })
+
+      setShowCadastroDialog(false)
+      setFormData({ name: "", email: "", password: "", cpf: "", age: "", birthData: "", emergencyContact: "", createLogin: true })
+      
+      // RECARREGA A LISTA DINAMICAMENTE
+      loadData()
+    } catch (error: any) {
+      toast({
+        title: "❌ Erro no Cadastro",
+        description: error.response?.data?.message || "Erro ao conectar ao servidor.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDelete = (id: string, tipo: 'idoso' | 'colaborador') => {
+    console.log(`Lógica de delete para ${tipo} com ID: ${id}`)
+    toast({ title: "Em breve", description: "Lógica de exclusão será implementada." })
+  }
+
+  const handleEnviarConvite = (tipo: "familiar" | "colaborador") => {
+    const link = `https://aurora.app/register?role=${tipo.toUpperCase()}`
     navigator.clipboard.writeText(link)
-
-    toast({
-      title: "✅ Link de Convite Copiado",
-      description: `O link para convidar um ${tipo === "familiar" ? "familiar" : "idoso"} foi copiado para a área de transferência.`,
-    })
-  }
-
-  const handleDeleteUsuario = (id: string, nome: string) => {
-    if (id === "1") {
-      toast({
-        title: "❌ Não é possível deletar",
-        description: "Você não pode deletar o administrador principal.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    sharedState.deleteUsuario(id)
-    toast({
-      title: "✅ Usuário Removido",
-      description: `${nome} foi removido do sistema.`,
-    })
-  }
-
-  const handleCadastrarIdoso = () => {
-    if (!formData.nome || !formData.email || !formData.senha || !formData.cpf) {
-      toast({
-        title: "❌ Campos obrigatórios",
-        description: "Preencha todos os campos para cadastrar o idoso.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    toast({
-      title: "✅ Idoso Cadastrado",
-      description: `${formData.nome} foi cadastrado com sucesso!`,
-    })
-
-    setShowCadastroDialog(false)
-    setFormData({ nome: "", email: "", senha: "", cpf: "" })
+    toast({ title: "✅ Link Copiado", description: `Envie o link para o ${tipo}.` })
   }
 
   return (
     <>
       <div className="relative min-h-screen overflow-hidden bg-gray-100 dark:bg-gray-900 my-[-28px]">
-        <div
-          aria-hidden
-          className="pointer-events-none
-            absolute top-0 left-0
-            w-full h-[400px] md:h-[450px]
-            bg-gradient-to-br from-blue-500 via-teal-500 to-teal-400"
-        />
+        <div className="absolute top-0 left-0 w-full h-[400px] bg-gradient-to-br from-blue-600 via-teal-500 to-emerald-400" />
 
         <div className="relative z-10 pt-56 md:pt-64">
-          <div className="w-full px-0 md:px-0">
-            <div className="flex items-center justify-between mb-25 mt-[-105px] px-[23px] mb-0">
-              <h1 className="md:text-4xl font-bold text-white drop-shadow-lg text-4xl">Todos usuários</h1>
-              <Button onClick={() => setShowUpgradeDialog(true)} className="hover:bg-yellow-700 bg-sky-900">
-                <Crown className="w-4 h-4 mr-2" />
-                Upgrade
-              </Button>
-            </div>
+          <div className="flex items-center justify-between mb-8 px-6">
+            <h1 className="text-4xl font-bold text-white drop-shadow-md">Gestão Aurora</h1>
+            <Button onClick={() => setShowUpgradeDialog(true)} className="bg-white text-teal-700 hover:bg-gray-100">
+              <Crown className="w-4 h-4 mr-2 text-yellow-500" /> Plano Pro
+            </Button>
+          </div>
 
-            <div className="bg-zinc-50 dark:bg-gray-900 rounded-t-[32px] shadow-2xl p-6 md:p-8 min-h-[calc(100vh-300px)] py-[35px] mt-[-40px] mb-0">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground">Gerenciar Usuários</h2>
-              <div className="h-[3px] mt-2 mb-[37px] bg-gradient-to-r from-teal-500 to-emerald-500"></div>
-
-              <div className="space-y-6">
-                {/* Usuários Familiares */}
-                <Card className="p-6 bg-white dark:bg-gray-900">
-                  <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                    <UserCheck className="w-6 h-6 text-blue-600" />
-                    Usuários Familiares ({familiares.length}/2)
-                  </h2>
-                  <div className="space-y-3">
-                    {familiares.map((usuario) => (
-                      <div
-                        key={usuario.id}
-                        className="flex items-center justify-between p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold">
-                            {usuario.nome[0]}
-                          </div>
-                          <div>
-                            <p className="font-semibold">{usuario.nome}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Última atividade: {usuario.ultimaAtividade.toLocaleString("pt-BR")}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700"
-                          >
-                            {usuario.status}
-                          </Badge>
-                          {usuario.id !== "1" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => handleDeleteUsuario(usuario.id, usuario.nome)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
+          <div className="bg-zinc-50 dark:bg-gray-900 rounded-t-[40px] shadow-inner p-6 md:p-10">
+            
+            {/* SEÇÃO COLABORADORES */}
+            <Card className="p-6 mb-8 border-none shadow-lg">
+              <h2 className="text-2xl font-bold flex items-center gap-2 text-blue-700 mb-6">
+                <Users className="w-6 h-6" /> Colaboradores da Família
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {isLoadingData ? (
+                  <Loader2 className="animate-spin text-blue-500" />
+                ) : colaboradores.length > 0 ? (
+                  colaboradores.map(user => (
+                    <div key={user._id} className="p-4 bg-gray-50 rounded-xl flex justify-between items-center border">
+                      <div className="flex flex-col">
+                        <span className="font-semibold">{user.name}</span>
+                        <span className="text-xs text-gray-500">{user.email}</span>
                       </div>
-                    ))}
-
-                    {sharedState.canAddFamiliar() ? (
-                      <Button
-                        onClick={() => handleEnviarConvite("familiar")}
-                        variant="outline"
-                        className="w-full border-dashed border-2 border-blue-300 hover:border-blue-400 hover:bg-blue-50 text-blue-600 h-14"
-                      >
-                        <LinkIcon className="w-5 h-5 mr-2" />
-                        Enviar Link de Convite para Familiar
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={() => setShowUpgradeDialog(true)}
-                        variant="outline"
-                        className="w-full border-2 border-yellow-400 hover:border-yellow-500 hover:bg-yellow-50 text-yellow-700 h-14"
-                      >
-                        <Crown className="w-5 h-5 mr-2" />
-                        Faça o Upgrade
-                      </Button>
-                    )}
-                  </div>
-                </Card>
-
-                {/* Usuários Idosos */}
-                <Card className="p-6 bg-white dark:bg-gray-900">
-                  <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                    <Activity className="w-6 h-6 text-emerald-600" />
-                    Usuários Idosos ({idosos.length}/1)
-                  </h2>
-                  <div className="space-y-3">
-                    {idosos.map((usuario) => (
-                      <div
-                        key={usuario.id}
-                        className="flex items-center justify-between p-4 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-bold">
-                            {usuario.nome[0]}
-                          </div>
-                          <div>
-                            <p className="font-semibold">{usuario.nome}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Última atividade: {usuario.ultimaAtividade.toLocaleString("pt-BR")}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700"
-                          >
-                            {usuario.status}
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleDeleteUsuario(usuario.id, usuario.nome)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">Membro</Badge>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(user._id, 'colaborador')}>
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
                       </div>
-                    ))}
-
-                    {sharedState.canAddIdoso() ? (
-                      <Button
-                        onClick={() => setShowCadastroDialog(true)}
-                        variant="outline"
-                        className="w-full border-dashed border-2 border-emerald-300 hover:border-emerald-400 hover:bg-emerald-50 text-emerald-600 h-14"
-                      >
-                        <UserCheck className="w-5 h-5 mr-2" />
-                        Cadastrar Novo Idoso
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={() => setShowUpgradeDialog(true)}
-                        variant="outline"
-                        className="w-full border-2 border-yellow-400 hover:border-yellow-500 hover:bg-yellow-50 text-yellow-700 h-14"
-                      >
-                        <Crown className="w-5 h-5 mr-2" />
-                        Faça o Upgrade
-                      </Button>
-                    )}
-                  </div>
-                </Card>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500">Nenhum colaborador cadastrado.</p>
+                )}
               </div>
-            </div>
+
+              <Button 
+                variant="outline" 
+                className="w-full border-dashed border-2 h-14 text-blue-600 border-blue-200 hover:bg-blue-50"
+                onClick={() => handleEnviarConvite("colaborador")}
+              >
+                <LinkIcon className="w-4 h-4 mr-2" /> Gerar Convite para Novo Colaborador
+              </Button>
+            </Card>
+
+            {/* SEÇÃO IDOSOS */}
+            <Card className="p-6 border-none shadow-lg">
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-emerald-700">
+                <Activity className="w-6 h-6" /> Idosos Sob Cuidado
+              </h2>
+              
+              <div className="space-y-4 mb-6">
+                {isLoadingData ? (
+                  <Loader2 className="animate-spin text-emerald-500" />
+                ) : idosos.length > 0 ? (
+                  idosos.map(idoso => (
+                    <div key={idoso._id} className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold">
+                          {idoso.name[0]}
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-medium text-emerald-900">{idoso.name}</span>
+                            <span className="text-xs text-emerald-700">CPF: {idoso.cpf}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-emerald-200 text-emerald-800 hover:bg-emerald-200">Ativo</Badge>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(idoso._id, 'idoso')}>
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500">Nenhum idoso cadastrado.</p>
+                )}
+              </div>
+
+              <Button 
+                className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => setShowCadastroDialog(true)}
+              >
+                <UserCheck className="w-5 h-5 mr-2" /> Adicionar Novo Idoso
+              </Button>
+            </Card>
           </div>
         </div>
       </div>
 
-      {/* Cadastro Dialog */}
+      {/* MODAL DE CADASTRO */}
       <Dialog open={showCadastroDialog} onOpenChange={setShowCadastroDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Cadastrar Novo Idoso</DialogTitle>
-            <DialogDescription>Preencha os dados do idoso para cadastrá-lo no sistema.</DialogDescription>
+            <DialogTitle>Cadastro de Idoso</DialogTitle>
+            <DialogDescription>Insira as informações conforme os registros médicos.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="nome">Nome Completo</Label>
-              <Input
-                id="nome"
-                placeholder="Ex: Maria Silva"
-                value={formData.nome}
-                onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-              />
+          
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <div className="col-span-2 space-y-2">
+              <Label>Nome Completo</Label>
+              <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Ex: maria@email.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
+              <Label>CPF</Label>
+              <Input value={formData.cpf} onChange={e => setFormData({...formData, cpf: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="senha">Senha</Label>
-              <Input
-                id="senha"
-                type="password"
-                placeholder="Mínimo 6 caracteres"
-                value={formData.senha}
-                onChange={(e) => setFormData({ ...formData, senha: e.target.value })}
-              />
+              <Label>Idade</Label>
+              <Input type="number" value={formData.age} onChange={e => setFormData({...formData, age: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cpf">CPF</Label>
-              <Input
-                id="cpf"
-                placeholder="000.000.000-00"
-                value={formData.cpf}
-                onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-              />
+              <Label>Data de Nascimento</Label>
+              <Input type="date" value={formData.birthData} onChange={e => setFormData({...formData, birthData: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label>Contato de Emergência</Label>
+              <Input value={formData.emergencyContact} onChange={e => setFormData({...formData, emergencyContact: e.target.value})} />
+            </div>
+            <div className="col-span-2 border-t pt-4 mt-2">
+              <p className="text-sm font-bold text-gray-500 mb-4">Dados de Acesso (Login)</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label>Senha Temporária</Label>
+              <Input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCadastroDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleCadastrarIdoso} className="bg-emerald-600 hover:bg-emerald-700">
-              Cadastrar Idoso
+            <Button variant="ghost" onClick={() => setShowCadastroDialog(false)}>Cancelar</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleCadastrarIdoso} disabled={loading}>
+              {loading ? "Cadastrando..." : "Confirmar Cadastro"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Upgrade Dialog */}
-      <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-2xl">
-              <Crown className="w-6 h-6 text-yellow-600" />
-              Faça o Upgrade
-            </DialogTitle>
-            <DialogDescription className="text-base pt-4">
-              Você atingiu o limite de usuários do plano gratuito. Faça o upgrade para um plano pago e adicione mais
-              usuários ao seu sistema Aurora.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 pt-4">
-            <Button className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 text-white h-12">
-              <Crown className="w-5 h-5 mr-2" />
-              Ver Planos Premium
-            </Button>
-            <Button variant="outline" onClick={() => setShowUpgradeDialog(false)}>
-              Voltar
-            </Button>
-          </div>
         </DialogContent>
       </Dialog>
     </>

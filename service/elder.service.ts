@@ -5,7 +5,7 @@ export const elderService = {
     return api.post('/elders', data);
   },
 
-  list() {
-    return api.get('/elders');
+  ALLeldelist() {
+    return api.get('/auth/all-elders');
   }
 };

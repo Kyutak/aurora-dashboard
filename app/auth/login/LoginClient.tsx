@@ -80,8 +80,9 @@ export default function LoginClient() {
     try {
       setLoading(true)
       setError("")
-      const user = await verifyOTP(email, codigo)
+      const { user, token } = await verifyOTP(email, codigo)
       setSessionUser({ data: { user } })
+      sessionStorage.setItem("authToken", token)
 
       const role = user.role?.trim().toUpperCase()
       if (role === "FAMILIAR") router.push("/admin/dashboard")
