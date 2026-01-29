@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Mail, Lock, Key } from "lucide-react"
@@ -38,7 +38,6 @@ export default function LoginClient() {
   const [popupMessage, setPopupMessage] = useState("")
   const [popupType, setPopupType] = useState<"success" | "error">("success")
 
-  // 🔑 Lógica para capturar dados do cadastro via URL
   useEffect(() => {
     const emailFromRegister = searchParams.get("email")
     const forceOTP = searchParams.get("otp") === "true"
@@ -52,22 +51,28 @@ export default function LoginClient() {
   const handleLogin = async () => {
     if (loading) return
     try {
-        setLoading(true)
-        setError("")
-        
-        await authService.login(email, senha)
+      setLoading(true)
+      setError("")
+      
+      await authService.login(email, senha)
 
-        setPopupType("success")
-        setPopupMessage("Código de verificação enviado para seu email")
-        setShowPopup(true) // O pop-up deve abrir aqui
-        
-        setTimeout(() => {
-        setStep("otp")
-        }, 500) 
-
+      setPopupType("success")
+      setPopupMessage("Código de verificação enviado para seu email")
+      setShowPopup(true)
+      
+      // Mudamos para o step de OTP
+      setStep("otp")
     } catch (err: any) {
+      const msg = err?.response?.data?.message || "Erro ao realizar login"
+      setError(msg)
+      setPopupType("error")
+      setPopupMessage(msg)
+      setShowPopup(true)
+    } finally {
+      // ESSA LINHA É CRUCIAL: Libera os botões novamente
+      setLoading(false)
     }
-    }
+  }
 
   const handleCodeLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -92,7 +97,7 @@ export default function LoginClient() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-400 via-emerald-500 to-green-600 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl rounded-3xl">
+      <Card className="w-full max-w-md shadow-2xl rounded-3xl relative">
         <CardHeader className="text-center pb-2">
           <CardTitle className="text-4xl font-bold text-teal-600">Aurora</CardTitle>
           <CardDescription>Entre na sua conta</CardDescription>
@@ -117,14 +122,33 @@ export default function LoginClient() {
                     <Input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} required />
                   </div>
                   {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-                  <Button className="w-full" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</Button>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? "Enviando..." : "Entrar"}
+                  </Button>
                 </form>
               ) : (
                 <form onSubmit={handleCodeLogin} className="space-y-4">
                   <Label className="flex items-center gap-2"><Key size={16} /> Código de verificação</Label>
-                  <Input value={codigo} onChange={(e) => setCodigo(e.target.value)} maxLength={6} className="text-center text-2xl tracking-widest" required />
+                  <Input 
+                    value={codigo} 
+                    onChange={(e) => setCodigo(e.target.value)} 
+                    maxLength={6} 
+                    className="text-center text-2xl tracking-widest" 
+                    required 
+                    autoFocus
+                  />
                   {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-                  <Button className="w-full" disabled={loading}>{loading ? "Verificando..." : "Verificar código"}</Button>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? "Verificando..." : "Verificar código"}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full text-xs" 
+                    onClick={() => setStep("login")}
+                    disabled={loading}
+                  >
+                    Voltar para o login
+                  </Button>
                 </form>
               )}
             </TabsContent>
@@ -141,13 +165,15 @@ export default function LoginClient() {
       </Card>
 
       {showPopup && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-sm text-center space-y-4">
-            <h2 className={`text-xl font-bold ${popupType === "success" ? "text-green-600" : "text-red-600"}`}>
-              {popupType === "success" ? "Sucesso" : "Erro"}
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl animate-in fade-in zoom-in duration-200">
+            <h2 className={`text-2xl font-bold mb-2 ${popupType === "success" ? "text-emerald-600" : "text-red-600"}`}>
+              {popupType === "success" ? "Sucesso!" : "Ops!"}
             </h2>
-            <p className="text-gray-700">{popupMessage}</p>
-            <Button onClick={() => setShowPopup(false)} className="w-full">OK</Button>
+            <p className="text-gray-600 mb-6">{popupMessage}</p>
+            <Button onClick={() => setShowPopup(false)} className="w-full bg-teal-600 hover:bg-teal-700 text-white py-6 rounded-xl">
+              Entendido
+            </Button>
           </div>
         </div>
       )}
