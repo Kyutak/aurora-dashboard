@@ -17,8 +17,8 @@ import {
   Circle,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { EmergencyButton } from "@/components/emergency-button"
-import { VoiceRecorderModal } from "@/components/voice-recorder"
+import { EmergencyButton } from "@/features/emergency-button"
+import { VoiceRecorderModal } from "@/features/voice-recorder"
 import { LembreteModal } from "@/features/reminder-modal"
 import { sharedState } from "@/lib/shared-state"
 import { Badge } from "@/components/ui/badge"
