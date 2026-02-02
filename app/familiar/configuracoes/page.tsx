@@ -1,7 +1,7 @@
 "use client"
 
-import { FamiliarSidebar } from "@/components/familiar-sidebar"
-import { SharedConfiguracoes } from "@/components/shared-configuracoes"
+import { FamiliarSidebar } from "@/components/layout/familiar-sidebar"
+import { SharedConfiguracoes } from "@/components/settings"
 
 export default function ConfiguracoesPage() {
   return (

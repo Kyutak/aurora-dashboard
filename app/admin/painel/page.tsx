@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AdminSidebar } from "@/components/admin-sidebar"
+import { AdminSidebar } from "@/components/layout/admin-sidebar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Users, Trash2, Crown, Plus } from "lucide-react"

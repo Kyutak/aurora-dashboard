@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect } from "react"
-import { FamiliarSidebar } from "@/components/familiar-sidebar"
-import { SharedLembretes } from "@/components/shared-lembretes"
+import { FamiliarSidebar } from "@/components/layout/familiar-sidebar"
+import { SharedLembretes } from "@/components/reminders"
 
 export default function LembretesPage() {
   useEffect(() => {

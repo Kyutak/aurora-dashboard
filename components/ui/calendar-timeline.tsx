@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 
 export function CalendarTimeline() {
   const [currentDate, setCurrentDate] = useState(new Date())
+//calendário estilo time-line para navegação entre dias
 
   useEffect(() => {
     // Update date every minute to keep it current

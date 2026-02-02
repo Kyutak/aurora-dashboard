@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect } from "react"
-import { AdminSidebar } from "@/components/admin-sidebar"
-import { AdminPersonalizacao } from "@/components/admin-personalizacao"
+import { AdminSidebar } from "@/components/layout/admin-sidebar"
+import { AdminPersonalizacao } from "@/components/admin-custom"
 
 export default function PersonalizacaoPage() {
   useEffect(() => {

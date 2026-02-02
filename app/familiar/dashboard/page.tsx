@@ -1,7 +1,7 @@
 "use client"
 import { useEffect } from "react"
-import { FamiliarSidebar } from "@/components/familiar-sidebar"
-import { SharedDashboard } from "@/components/shared-dashboard"
+import { FamiliarSidebar } from "@/components/layout/familiar-sidebar"
+import { SharedDashboard } from "@/components/dashboard"
 
 export default function FamiliarDashboard() {
   useEffect(() => {

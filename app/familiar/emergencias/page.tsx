@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect } from "react"
-import { FamiliarSidebar } from "@/components/familiar-sidebar"
-import { SharedEmergencias } from "@/components/shared-emergencias"
+import { FamiliarSidebar } from "@/components/layout/familiar-sidebar"
+import { SharedEmergencias } from "@/components/emergencias"
 
 export default function EmergenciasPage() {
   useEffect(() => {

@@ -1,8 +1,8 @@
 "use client"
 
 import React, { useEffect } from "react"
-import { AdminSidebar } from "@/components/admin-sidebar"
-import { SharedDashboard } from "@/components/shared-dashboard"
+import { AdminSidebar } from "@/components/layout/admin-sidebar"
+import { SharedDashboard } from "@/components/dashboard"
 
 export default function AdminDashboard() {
   

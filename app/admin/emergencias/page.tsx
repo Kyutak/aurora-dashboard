@@ -1,8 +1,8 @@
 "use client"
 
 import  React, { useEffect } from "react"
-import { AdminSidebar } from "@/components/admin-sidebar"
-import { SharedEmergencias } from "@/components/shared-emergencias"
+import { AdminSidebar } from "@/components/layout/admin-sidebar"
+import { SharedEmergencias } from "@/components/emergencias"
 
 export default function AdminEmergenciasPage() {
   useEffect(() => {

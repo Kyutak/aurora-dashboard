@@ -1,14 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AdminSidebar } from "@/components/admin-sidebar"
+import { AdminSidebar } from "@/components/layout/admin-sidebar"
 import { Button } from "@/components/ui/button"
 import { Crown } from "lucide-react"
-import { LembreteModal } from "@/components/lembrete-modal"
+import { LembreteModal } from "@/features/reminder-modal"
 import { useToast } from "@/hooks/use-toast"
 import { sharedState } from "@/lib/shared-state"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { SharedLembretes } from "@/components/shared-lembretes"
+import { SharedLembretes } from "@/components/reminders"
 
 export default function AdminLembretesPage() {
   const { toast } = useToast()

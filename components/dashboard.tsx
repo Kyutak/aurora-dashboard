@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Settings, CheckCircle, CircleDashedIcon, Pill, Utensils, Repeat, Mic, CalendarDays } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { LembreteModal } from "@/components/lembrete-modal"
+import { LembreteModal } from "@/features/reminder-modal"
 import { useToast } from "@/hooks/use-toast"
 import { sharedState } from "@/lib/shared-state"
 import Link from "next/link"
@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { CalendarTimeline } from "@/components/calendar-timeline"
+import { CalendarTimeline } from "@/components/ui/calendar-timeline"
 import { getSessionUser, getUserLabel, SessionUser } from "@/lib/auth-state"
 
 interface SharedDashboardProps {
@@ -156,12 +156,11 @@ export function SharedDashboard({ userType }: SharedDashboardProps) {
             <div className="flex items-center justify-between mb-25 mt-[-105px] px-[23px] mb-0">
               <div className="flex items-center gap-3">
                 <div className="md:w-14 md:h-14 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/50 flex items-center justify-center text-white font-bold text-2xl w-[55px] h-[55px]">
-                  {nomeUsuario.charAt(0)}
+                  {nomeUsuario.charAt(0).toUpperCase()}
                 </div>
                 <div>
                   <h1 className="md:text-3xl font-bold text-white drop-shadow-lg text-3xl">Olá, {nomeUsuario}</h1>
-                  <p className="text-white/90 md:text-base drop-shadow text-base"> Tipo de Usuário: {tipoUsuario}</p>
-                  <p className="text-white/90 md:text-base drop-shadow text-base">Boa tarde!</p>
+                  <p className="text-white/90 md:text-base drop-shadow text-base">Boa tarde! {tipoUsuario}</p>
                 </div>
               </div>
 

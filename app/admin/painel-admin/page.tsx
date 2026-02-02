@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { AdminSidebar } from "@/components/admin-sidebar"
+import { AdminSidebar } from "@/components/layout/admin-sidebar"
 import { AdminPainel } from "@/components/admin-painel"
 
 export default function PainelAdminPage() {

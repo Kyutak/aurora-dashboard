@@ -21,6 +21,8 @@ interface Lembrete {
   data?: Date
 }
 
+//pop-up de definição de lembretes padrão
+
 interface LembreteModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
