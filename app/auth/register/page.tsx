@@ -14,6 +14,7 @@ import Link from "next/link"
 import { User, Mail, Lock, CreditCard } from "lucide-react"
 import {authService} from "@/service/auth.service"
 import { authCollaboratorService } from "@/service/collaborator.service"
+import type { AxiosError } from "axios"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -50,14 +51,26 @@ export default function RegisterPage() {
   }
 
   const handleFamiliarRegister = async (name: string, email: string, password: string, cpf: string) => {
+    if(loading) return
     try {
+      setLoading(true)
       setError("")
+      setSuccess("")
+
       await authCollaboratorService.register(name, email, password, cpf)
       setSuccess("Conta criada com sucesso! Redirecionando...")
+
+      setTimeout(()=>{
+        window.location.href = `/auth/login?email=${email}&otp=true`
+      },2000)
     }catch(err){
-      setError("Erro ao criar conta. Tente novamente."+ err)
+      const axiosError = err as AxiosError<{ message: string }>;
+      const msg = axiosError?.response?.data?.message || "Erro ao criar conta familiar. Verifique os dados.";
+      setError(msg);
     }
-    
+    finally{
+      setLoading(false)
+    }
   }
 
 
@@ -234,8 +247,9 @@ export default function RegisterPage() {
                 <Button
                   type="submit"
                   className="w-full h-12 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600"
+                  disabled={loading}
                 >
-                  Criar Conta Familiar
+                  {loading ? "Criando Conta..." : "Criar Conta Familiar"}
                 </Button>
               </form>
             </TabsContent>

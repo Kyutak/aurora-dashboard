@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import {
   Clock,
   Bell,
   MicIcon,
-  Edit2,
   Pill,
   Utensils,
   Repeat,
@@ -15,298 +15,182 @@ import {
   CalendarDays,
   CheckCircle,
   Circle,
+  LogOut,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { EmergencyButton } from "@/features/emergency-button"
 import { VoiceRecorderModal } from "@/features/voice-recorder"
-import { LembreteModal } from "@/features/reminder-modal"
 import { sharedState } from "@/lib/shared-state"
+import { getSessionUser } from "@/lib/auth-state"
 import { Badge } from "@/components/ui/badge"
 import Image from "next/image"
 
-interface Lembrete {
-  id: string
-  titulo: string
-  horario: string
-  data: Date
-  tipo: "medicamento" | "refeicao" | "lembrete-voz" | "rotina" | "evento"
-  criadoPor: string
-  repeticao?: string
-  diasSemana?: number[]
-}
-
-interface Transcricao {
-  id: string
-  texto: string
-  timestamp: Date
-}
-
 export default function IdosoDashboard() {
   const { toast } = useToast()
+  const router = useRouter()
+  
+  const [userName, setUserName] = useState("...")
   const [isRecorderOpen, setIsRecorderOpen] = useState(false)
   const [lembretes, setLembretes] = useState(sharedState.getLembretes())
   const [botaoEmergenciaAtivo, setBotaoEmergenciaAtivo] = useState(true)
-  const [idosoPodeEditar, setIdosoPodeEditar] = useState(false)
-  const [editModalOpen, setEditModalOpen] = useState(false)
-  const [lembreteParaEditar, setLembreteParaEditar] = useState<any>()
-  const [lembretesCompletos, setLembretesCompletos] = useState<Set<string>>(sharedState.getLembretesCompletos())
+  const [lembretesCompletos, setLembretesCompletos] = useState<Set<string>>(new Set())
   const [dataAtual, setDataAtual] = useState("")
 
   useEffect(() => {
+    // 1. Pega a sessão
+    const session = getSessionUser()
+    
+    const seveName = localStorage.getItem("userName");
+      if (seveName) {
+      setUserName(seveName);
+    } else {
+      // 2. CASO NÃO TENHA, TENTA PEGAR DA SESSÃO
+      const session = getSessionUser();
+      const sessionName = session?.user?.name || session?.user?.name;
+      if (sessionName) setUserName(sessionName);
+    }
+    
+    if (session?.user?.name) {
+    setUserName(session.user.name);
+    }
+    // 2. Data Atual
     const hoje = new Date()
-    const opcoes: Intl.DateTimeFormatOptions = {
+    const dataFormatada = hoje.toLocaleDateString("pt-BR", {
       weekday: "long",
       year: "numeric",
       month: "long",
       day: "numeric",
-    }
-    const dataFormatada = hoje.toLocaleDateString("pt-BR", opcoes)
+    })
     setDataAtual(dataFormatada.charAt(0).toUpperCase() + dataFormatada.slice(1))
 
+    // 3. Sync com Shared State
     const unsubscribe = sharedState.subscribe(() => {
       setLembretes(sharedState.getLembretes())
       const prefs = sharedState.getPreferencias()
       setBotaoEmergenciaAtivo(prefs.botaoEmergenciaAtivo)
-      setIdosoPodeEditar(prefs.idosoPodeEditarRotina)
       setLembretesCompletos(new Set(sharedState.getLembretesCompletos()))
     })
 
-    const prefs = sharedState.getPreferencias()
-    setBotaoEmergenciaAtivo(prefs.botaoEmergenciaAtivo)
-    setIdosoPodeEditar(prefs.idosoPodeEditarRotina)
-
+    // Cleanup corrigido (Sintaxe OK agora)
     return () => {
-      unsubscribe();
+      unsubscribe()
     }
-  }, [])
+  }, [router])
 
+  const handleLogout = () => {
+    // Importante: Limpar o cookie que o seu middleware checa!
+    document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+    sessionStorage.removeItem("authToken")
+    router.push("/auth/login")
+  }
+
+  // --- Funções de Apoio ---
   const getTipoIcon = (tipo: string) => {
     switch (tipo) {
-      case "medicamento":
-        return <Pill className="w-10 h-10 text-pink-500" />
-      case "refeicao":
-        return <Utensils className="w-10 h-10 text-orange-500" />
-      case "rotina":
-        return <Repeat className="w-10 h-10 text-blue-500" />
-      case "lembrete-voz":
-        return <Mic className="w-10 h-10 text-emerald-500" />
-      case "evento":
-        return <CalendarDays className="w-10 h-10 text-green-600" />
-      default:
-        return <Bell className="w-10 h-10 text-blue-600" />
+      case "medicamento": return <Pill className="w-10 h-10 text-pink-500" />
+      case "refeicao": return <Utensils className="w-10 h-10 text-orange-500" />
+      case "rotina": return <Repeat className="w-10 h-10 text-blue-500" />
+      case "lembrete-voz": return <Mic className="w-10 h-10 text-emerald-500" />
+      case "evento": return <CalendarDays className="w-10 h-10 text-green-600" />
+      default: return <Bell className="w-10 h-10 text-blue-600" />
     }
   }
 
   const handleToggleCompleto = (id: string) => {
     sharedState.toggleLembreteCompleto(id)
     toast({
-      title: sharedState.isLembreteCompleto(id) ? "✅ Marcado como feito" : "Desmarcado",
-      description: sharedState.isLembreteCompleto(id)
-        ? "Seus familiares serão notificados."
-        : "O lembrete foi desmarcado.",
+      title: sharedState.isLembreteCompleto(id) ? "✅ Tarefa feita!" : "Lembrete reativado",
     })
-  }
-
-  const handleEmergencia = () => {
-    sharedState.addEmergencia("idoso-1")
-
-    toast({
-      title: "🚨 Emergência Acionada",
-      description: "Seus familiares foram notificados imediatamente.",
-      variant: "destructive",
-    })
-  }
-
-  const handleSaveReminder = (text: string, date: Date) => {
-    if (!sharedState.canAddLembreteVoz()) {
-      toast({
-        title: "⚠️ Limite Atingido",
-        description: "Você atingiu o limite de 2 lembretes de voz gratuitos. Peça para sua família fazer o upgrade!",
-        variant: "destructive",
-      })
-      return
-    }
-
-    sharedState.addLembrete({
-      titulo: text,
-      horario: date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      data: date,
-      tipo: "lembrete-voz",
-      criadoPor: "idoso",
-      repeticao: "Única",
-    })
-
-    toast({
-      title: "✅ Lembrete Salvo",
-      description: `Você será lembrado em ${date.toLocaleDateString("pt-BR")}`,
-    })
-  }
-
-  const handleEditarLembrete = (lembrete: any) => {
-    if (lembreteParaEditar) {
-      sharedState.updateLembrete(lembreteParaEditar.id, lembrete)
-      toast({
-        title: "✅ Lembrete Atualizado",
-        description: "O lembrete foi atualizado com sucesso.",
-      })
-    }
-    setEditModalOpen(false)
-    setLembreteParaEditar(undefined)
   }
 
   const lembretesHoje = lembretes.filter((l) => {
-    const hoje = new Date()
-    const lembreteData = l.data instanceof Date ? l.data : new Date(l.data)
-
-    if (l.repeticao === "Única") {
-      return (
-        lembreteData.getDate() === hoje.getDate() &&
-        lembreteData.getMonth() === hoje.getMonth() &&
-        lembreteData.getFullYear() === hoje.getFullYear()
-      )
-    }
-
-    if (l.repeticao === "Semanal" && l.diasSemana) {
-      return l.diasSemana.includes(hoje.getDay())
-    }
-
-    return true
+    const hoje = new Date().getDate()
+    const dataLembrete = new Date(l.data).getDate()
+    return l.repeticao === "Diária" || hoje === dataLembrete
   })
 
-  const getDiasSemanaLabel = (dias?: number[]) => {
-    if (!dias || dias.length === 0) return ""
-    const labels = ["D", "S", "T", "Q", "Q", "S", "S"]
-    return dias.map((d) => labels[d]).join(", ")
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-background to-blue-50 dark:from-emerald-950 dark:via-background dark:to-blue-950 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-8">
+        
+        {/* Header */}
         <div className="flex items-start justify-between">
-          <div>
-            <h1 className="md:text-6xl font-bold mb-2 text-foreground text-3xl text-left">Aurora</h1>
-            <p className="text-muted-foreground text-xl text-left my-[-4px]">Olá, Marina!</p>
+          <div className="text-left">
+            <h1 className="text-4xl md:text-6xl font-black text-emerald-600">Aurora</h1>
+            <p className="text-gray-500 text-xl font-medium">Olá, {userName}!</p>
           </div>
-          <Image src="/images/aurora-logo.png" alt="Aurora Logo" width={80} height={80} className="rounded-xl" />
+          <div className="flex flex-col items-end gap-2">
+            <div className="bg-white p-2 rounded-2xl shadow-sm border border-emerald-100">
+               <Image src="/images/aurora-logo.png" alt="Logo" width={50} height={50} />
+            </div>
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-red-500 font-bold hover:bg-red-50">
+              <LogOut className="w-4 h-4 mr-2" /> Sair
+            </Button>
+          </div>
         </div>
 
-        <div className="h-[3px] mt-2 mb-[37px] bg-gradient-to-r from-blue-500 to-green-500"></div>
+        <div className="h-1 bg-gradient-to-r from-emerald-400 to-blue-500 rounded-full" />
+        <p className="text-2xl font-bold text-center text-gray-700">{dataAtual}</p>
 
-        <div className="text-center py-4">
-          <p className="text-2xl font-semibold text-foreground my-[-30px]">{dataAtual}</p>
-        </div>
-
+        {/* Botão de Emergência */}
         {botaoEmergenciaAtivo && (
-          <Card className="p-8 bg-gradient-to-br from-red-500 to-red-600 border-none shadow-2xl border-0 rounded-4xl opacity-100 px-[13px] py-4 my-[45px]">
-            <EmergencyButton onEmergency={handleEmergencia} />
-          </Card>
+          <div className="py-4">
+             <EmergencyButton onEmergency={() => toast({ title: "🚨 Ajuda chamada!", variant: "destructive" })} />
+          </div>
         )}
 
-        {/* Lembretes do Dia - Fora dos Cards */}
-        <div className="space-y-3">
-          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 mt-[50px]">
-            <Clock className="w-6 h-6 text-blue-600" />
-            Lembretes de Hoje
+        {/* Lembretes */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-800">
+            <Clock className="w-6 h-6 text-emerald-600" /> Lembretes de Hoje
           </h2>
+
           {lembretesHoje.length > 0 ? (
             lembretesHoje.map((lembrete) => {
-              const isCompleto = lembretesCompletos.has(lembrete.id)
-
+              const concluido = lembretesCompletos.has(lembrete.id)
               return (
-                <div
-                  key={lembrete.id}
-                  className={`p-6 border-2 transition-all rounded-xl py-[15px] ${
-                    isCompleto
-                      ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700"
-                      : "bg-gradient-to-r from-blue-50 to-emerald-50 dark:from-blue-950 dark:to-emerald-950 border-blue-300 dark:border-blue-700"
-                  }`}
+                <Card 
+                  key={lembrete.id} 
+                  className={`p-5 border-2 transition-all ${concluido ? "bg-gray-50 border-gray-200" : "bg-white border-emerald-100 shadow-lg"}`}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full border-2 flex items-center justify-center bg-white dark:bg-gray-900 px-0 mx-[-10px] gap-0">
-                      {getTipoIcon(lembrete.tipo)}
-                    </div>
-                    <div className="flex-1 mx-2">
-                      <p
-                        className={`font-bold leading-relaxed text-xl ${
-                          isCompleto ? "line-through text-muted-foreground" : ""
-                        }`}
-                      >
+                    <div className="bg-emerald-50 p-3 rounded-full">{getTipoIcon(lembrete.tipo)}</div>
+                    <div className="flex-1">
+                      <p className={`text-xl font-bold ${concluido ? "line-through text-gray-400" : "text-gray-800"}`}>
                         {lembrete.titulo}
                       </p>
-                      <div className="flex gap-2 mt-2 flex-wrap items-center">
-                        <Badge variant="outline" className="text-lg">
-                          {lembrete.horario}
-                        </Badge>
-                        {idosoPodeEditar && (
-                          <>
-                            {lembrete.repeticao === "Diária" && <Badge variant="outline">Diária</Badge>}
-                            {lembrete.repeticao === "Semanal" && lembrete.diasSemana && (
-                              <Badge variant="outline">{getDiasSemanaLabel(lembrete.diasSemana)}</Badge>
-                            )}
-                            {lembrete.repeticao === "Única" && <Badge variant="outline">Única</Badge>}
-                          </>
-                        )}
-                      </div>
+                      <Badge variant="outline" className="text-md mt-1 border-emerald-200">{lembrete.horario}</Badge>
                     </div>
-                    <button
-                      onClick={() => handleToggleCompleto(lembrete.id)}
-                      className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors mx-[-15px]"
-                    >
-                      {isCompleto ? (
-                        <CheckCircle className="w-12 h-12 text-chart-3" />
-                      ) : (
-                        <Circle className="w-12 h-12 text-gray-400" />
-                      )}
+                    <button onClick={() => handleToggleCompleto(lembrete.id)} className="p-2">
+                      {concluido ? <CheckCircle className="w-14 h-14 text-emerald-500" /> : <Circle className="w-14 h-14 text-gray-300" />}
                     </button>
-                    {idosoPodeEditar && (
-                      <Button
-                        onClick={() => {
-                          setLembreteParaEditar(lembrete)
-                          setEditModalOpen(true)
-                        }}
-                        size="lg"
-                        variant="outline"
-                      >
-                        <Edit2 className="w-6 h-6" />
-                      </Button>
-                    )}
                   </div>
-                </div>
+                </Card>
               )
             })
           ) : (
-            <p className="text-xl text-muted-foreground text-center py-4">Nenhum lembrete para hoje</p>
+            <div className="text-center py-10 text-gray-400 border-2 border-dashed rounded-3xl">
+              Nenhum lembrete para agora.
+            </div>
           )}
         </div>
 
-        {/* Lembretes de Voz - Fora dos Cards */}
-        <div className="mt-8">
-          <h3 className="text-xl font-semibold text-muted-foreground mb-3 text-center">
-            {"Grave um lembrete e selecione a data"}
-          </h3>
+        {/* Botão de Voz */}
+        <div className="pt-6">
           <Button
             onClick={() => setIsRecorderOpen(true)}
-            size="lg"
-            className="w-full text-2xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg flex flex-col items-center justify-center h-[142px]"
+            className="w-full h-32 text-2xl font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-[40px] shadow-2xl flex flex-col gap-2"
           >
-            <MicIcon style={{ width: "48px", height: "48px" }} className="mb-2" />
-            <span>Gravar Lembrete de Voz</span>
+            <MicIcon size={44} />
+            Gravar Lembrete
           </Button>
         </div>
       </div>
 
-      <VoiceRecorderModal
-        isOpen={isRecorderOpen}
-        onClose={() => setIsRecorderOpen(false)}
-        onSaveReminder={handleSaveReminder}
-      />
-
-      <LembreteModal
-        open={editModalOpen}
-        onOpenChange={setEditModalOpen}
-        onSave={handleEditarLembrete}
-        lembrete={lembreteParaEditar}
-        canEdit={true}
+      <VoiceRecorderModal 
+        isOpen={isRecorderOpen} 
+        onClose={() => setIsRecorderOpen(false)} 
+        onSaveReminder={() => {}} 
       />
     </div>
   )

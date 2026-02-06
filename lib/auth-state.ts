@@ -3,6 +3,7 @@
 export type UserRole = "FAMILIAR" | "FAMILIAR_COLABORADOR" | "IDOSO"
 
 export interface SessionUser {
+  user: any
   id: string
   name: string
   email: string

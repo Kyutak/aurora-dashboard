@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Mail, Lock, Key } from "lucide-react"
+import { Mail, Lock, Key, User } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -53,14 +53,10 @@ export default function LoginClient() {
     try {
       setLoading(true)
       setError("")
-      
       await authService.login(email, senha)
-
       setPopupType("success")
       setPopupMessage("Código de verificação enviado para seu email")
       setShowPopup(true)
-      
-      // Mudamos para o step de OTP
       setStep("otp")
     } catch (err: any) {
       const msg = err?.response?.data?.message || "Erro ao realizar login"
@@ -69,7 +65,6 @@ export default function LoginClient() {
       setPopupMessage(msg)
       setShowPopup(true)
     } finally {
-      // ESSA LINHA É CRUCIAL: Libera os botões novamente
       setLoading(false)
     }
   }
@@ -80,17 +75,46 @@ export default function LoginClient() {
     try {
       setLoading(true)
       setError("")
+      
       const { user, token } = await verifyOTP(email, codigo)
+      
       setSessionUser({ data: { user } })
+
       sessionStorage.setItem("authToken", token)
 
-      const role = user.role?.trim().toUpperCase()
-      if (role === "FAMILIAR") router.push("/admin/dashboard")
-      else if (role === "FAMILIAR_COLABORADOR") router.push("/familiar/dashboard")
-      else if (role === "IDOSO") router.push("/idoso/dashboard")
-      else setError("Tipo de usuário não reconhecido")
+      document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`;
+
+      localStorage.setItem("userName",user.name)
+
+      const role = user.role?.trim().toUpperCase();
+      setTimeout(() => {
+        if (role === "FAMILIAR") router.push("/admin/dashboard");
+        else if (role === "FAMILIAR_COLABORADOR") router.push("/familiar/dashboard");
+        else if (role === "IDOSO") router.push("/idoso/dashboard");
+        else setError("Tipo de usuário não reconhecido");
+      }, 200); 
     } catch (err: any) {
       setError(err?.response?.data?.message || "Código inválido ou expirado")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const resendCodeLogin = async () => {
+    if (loading) return
+    try {
+      setLoading(true)
+      setError("")
+      await authService.resendOTP(email)
+      setPopupType("success")
+      setPopupMessage("Código de verificação reenviado")
+      setShowPopup(true)
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Erro ao reenviar"
+      setError(msg)
+      setPopupType("error")
+      setPopupMessage(msg)
+      setShowPopup(true)
     } finally {
       setLoading(false)
     }
@@ -107,74 +131,97 @@ export default function LoginClient() {
         <CardContent className="pt-6">
           <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
             <TabsList className="grid grid-cols-2 mb-6">
-              <TabsTrigger value="email">Email</TabsTrigger>
+              <TabsTrigger value="email">Familiar</TabsTrigger>
               <TabsTrigger value="idoso">Idoso</TabsTrigger>
             </TabsList>
 
+            {/* CONTEÚDO PARA FAMILIAR / EMAIL */}
             <TabsContent value="email">
               {step === "login" ? (
                 <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-4">
                   <div>
                     <Label className="flex items-center gap-2"><Mail size={16} /> Email</Label>
-                    <Input value={email} onChange={(e) => setEmail(e.target.value)} required />
+                    <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                   </div>
                   <div>
                     <Label className="flex items-center gap-2"><Lock size={16} /> Senha</Label>
                     <Input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} required />
                   </div>
                   {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-                  <Button type="submit" className="w-full" disabled={loading}>
+                  <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700" disabled={loading}>
                     {loading ? "Enviando..." : "Entrar"}
                   </Button>
                 </form>
-              ) : (
-                <form onSubmit={handleCodeLogin} className="space-y-4">
-                  <Label className="flex items-center gap-2"><Key size={16} /> Código de verificação</Label>
-                  <Input 
-                    value={codigo} 
-                    onChange={(e) => setCodigo(e.target.value)} 
-                    maxLength={6} 
-                    className="text-center text-2xl tracking-widest" 
-                    required 
-                    autoFocus
-                  />
-                  {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Verificando..." : "Verificar código"}
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    className="w-full text-xs" 
-                    onClick={() => setStep("login")}
-                    disabled={loading}
-                  >
-                    Voltar para o login
-                  </Button>
-                </form>
-              )}
+              ) : null}
             </TabsContent>
 
+            {/* CONTEÚDO PARA IDOSO */}
             <TabsContent value="idoso">
-              <p className="text-center text-sm text-muted-foreground">Login para idosos em desenvolvimento.</p>
+              {step === "login" ? (
+                <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-4">
+                  <div>
+                    <Label className="flex items-center gap-2"><User size={16} /> Email do Idoso</Label>
+                    <Input type="email" placeholder="Seu email cadastrado" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  </div>
+                  <div>
+                    <Label className="flex items-center gap-2"><Lock size={16} /> Senha</Label>
+                    <Input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} required />
+                  </div>
+                  {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+                  <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700" disabled={loading}>
+                    {loading ? "Enviando..." : "Entrar como Idoso"}
+                  </Button>
+                </form>
+              ) : null}
             </TabsContent>
           </Tabs>
 
+          {/* STEP DE OTP (FORA DAS TABS PARA NÃO REPETIR CÓDIGO) */}
+          {step === "otp" && (
+            <form onSubmit={handleCodeLogin} className="space-y-4 mt-4">
+              <Label className="flex items-center gap-2 font-bold text-teal-700">
+                <Key size={16} /> Código enviado para {email}
+              </Label>
+              <Input 
+                value={codigo} 
+                onChange={(e) => setCodigo(e.target.value)} 
+                maxLength={6} 
+                className="text-center text-2xl tracking-widest font-bold border-teal-200" 
+                required 
+                autoFocus
+              />
+              {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+              <Button type="submit" className="w-full bg-teal-600" disabled={loading}>
+                {loading ? "Verificando..." : "Verificar Código"}
+              </Button>
+              <div className="flex flex-col gap-2">
+                <Button variant="link" type="button" onClick={resendCodeLogin} disabled={loading} className="text-teal-600">
+                  Reenviar código
+                </Button>
+                <Button variant="ghost" type="button" onClick={() => setStep("login")} className="text-xs">
+                  Voltar
+                </Button>
+              </div>
+            </form>
+          )}
+
           <div className="mt-6 text-center">
-            <p className="text-sm">Não tem conta? <Link href="/auth/register" className="text-teal-600">Cadastre-se</Link></p>
+            <p className="text-sm text-gray-500">
+              Não tem conta? <Link href="/auth/register" className="text-teal-600 font-bold">Cadastre-se</Link>
+            </p>
           </div>
         </CardContent>
       </Card>
 
+      {/* POPUP DE FEEDBACK */}
       {showPopup && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl">
             <h2 className={`text-2xl font-bold mb-2 ${popupType === "success" ? "text-emerald-600" : "text-red-600"}`}>
               {popupType === "success" ? "Sucesso!" : "Ops!"}
             </h2>
             <p className="text-gray-600 mb-6">{popupMessage}</p>
-            <Button onClick={() => setShowPopup(false)} className="w-full bg-teal-600 hover:bg-teal-700 text-white py-6 rounded-xl">
-              Entendido
-            </Button>
+            <Button onClick={() => setShowPopup(false)} className="w-full bg-teal-600 py-6">Entendido</Button>
           </div>
         </div>
       )}

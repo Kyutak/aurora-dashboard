@@ -35,6 +35,8 @@ export async function middleware(req: NextRequest) {
       Buffer.from(token.split(".")[1], "base64").toString("utf-8")
     )
 
+    console.log("ROLE ENCONTRADO NO TOKEN:", payload.role);
+
     const role = payload.role
 
     if (pathname.startsWith("/admin") && role !== "FAMILIAR") {
