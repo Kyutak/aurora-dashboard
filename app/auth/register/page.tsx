@@ -56,8 +56,6 @@ export default function RegisterPage() {
       setLoading(true)
       setError("")
       setSuccess("")
-
-      const cleanCpf = cpf.replace(/\D/g, "")
       
       await authCollaboratorService.register(name, email, password, cleanCpf)
       setSuccess("Conta criada com sucesso! Redirecionando...")
@@ -77,14 +75,7 @@ export default function RegisterPage() {
 
 
   const formatCPF = (value: string) => {
-    const numbers = value.replace(/\D/g, "")
-    if (numbers.length <= 11) {
-      return numbers
-        .replace(/(\d{3})(\d)/, "$1.$2")
-        .replace(/(\d{3})(\d)/, "$1.$2")
-        .replace(/(\d{3})(\d{1,2})$/, "$1-$2")
-    }
-    return value
+    return value.replace(/\D/g, "");
   }
 
   return (
@@ -237,10 +228,10 @@ export default function RegisterPage() {
                     value={cpfIdoso}
                     onChange={(e) => setCpfIdoso(formatCPF(e.target.value))}
                     required
-                    maxLength={14}
+                    maxLength={11}
                     className="h-12"
                   />
-                  <p className="text-xs text-muted-foreground">CPF do idoso que você irá cuidar</p>
+                  <p className="text-xs text-muted-foreground">CPF do idoso que você irá cuidar (apenas números) </p>
                 </div>
 
                 {error && <p className="text-sm text-red-500 text-center">{error}</p>}
