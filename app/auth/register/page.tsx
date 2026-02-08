@@ -57,7 +57,7 @@ export default function RegisterPage() {
       setError("")
       setSuccess("")
       
-      await authCollaboratorService.register(name, email, password, cleanCpf)
+      await authCollaboratorService.register(name, email, password, cpf )
       setSuccess("Conta criada com sucesso! Redirecionando...")
 
       setTimeout(()=>{

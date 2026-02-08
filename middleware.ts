@@ -43,7 +43,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/auth/login", req.url))
     }
 
-    if (pathname.startsWith("/familiar") && role !== "FAMILIAR_COLABORADOR") {
+    if (pathname.startsWith("/familiar") && role !== "COLLABORATOR") {
       return NextResponse.redirect(new URL("/auth/login", req.url))
     }
 

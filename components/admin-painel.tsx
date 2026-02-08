@@ -18,12 +18,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 import { elderService } from "@/service/elder.service"
-import { authCollaboratorService } from "@/service/collaborator.service" // Ajuste o caminho se necessário
+import { authCollaboratorService } from "@/service/collaborator.service"
 
 export function AdminPainel() {
   const { toast } = useToast()
   
-  // ESTADOS DINÂMICOS
   const [colaboradores, setColaboradores] = useState<any[]>([])
   const [idosos, setIdosos] = useState<any[]>([])
   const [isLoadingData, setIsLoadingData] = useState(true)
@@ -43,23 +42,25 @@ export function AdminPainel() {
     createLogin: true
   })
 
-  // 1. FUNÇÃO PARA CARREGAR DADOS DO BACKEND
+  // 1. CARREGAR DADOS FILTRADOS DO CHEFE
   const loadData = async () => {
     try {
       setIsLoadingData(true)
-      // Executa as duas buscas em paralelo
+      
       const [resElders, resCollabs] = await Promise.all([
-        elderService.ALLeldelist(),
-        authCollaboratorService.AllCollaborators()
+        elderService.getMyElders(),            // Service Novo
+        authCollaboratorService.getMyCollaborators() // Service Novo
       ])
       
-      setIdosos(resElders.data)
-      setColaboradores(resCollabs.data)
+      // O Axios retorna os dados dentro de .data
+      setIdosos(resElders.data || [])
+      setColaboradores(resCollabs.data || [])
+
     } catch (error) {
       console.error("Erro ao carregar painel:", error)
       toast({
         title: "Erro de conexão",
-        description: "Não foi possível carregar os dados do servidor.",
+        description: "Não foi possível carregar seus dados.",
         variant: "destructive",
       })
     } finally {
@@ -71,7 +72,6 @@ export function AdminPainel() {
     loadData()
   }, [])
 
-  // 2. CADASTRO DE IDOSO COM REFRESH AUTOMÁTICO
   const handleCadastrarIdoso = async () => {
     if (!formData.name || !formData.email || !formData.password || !formData.cpf) {
       toast({ title: "❌ Campos obrigatórios", variant: "destructive" })
@@ -97,8 +97,7 @@ export function AdminPainel() {
       setShowCadastroDialog(false)
       setFormData({ name: "", email: "", password: "", cpf: "", age: "", birthData: "", emergencyContact: "", createLogin: true })
       
-      // RECARREGA A LISTA DINAMICAMENTE
-      loadData()
+      loadData() // Recarrega a lista
     } catch (error: any) {
       toast({
         title: "❌ Erro no Cadastro",
@@ -146,15 +145,20 @@ export function AdminPainel() {
                 {isLoadingData ? (
                   <Loader2 className="animate-spin text-blue-500" />
                 ) : colaboradores.length > 0 ? (
-                  colaboradores.map(user => (
-                    <div key={user._id} className="p-4 bg-gray-50 rounded-xl flex justify-between items-center border">
+                  colaboradores.map(item => (
+                    <div key={item.id} className="p-4 bg-gray-50 rounded-xl flex justify-between items-center border">
                       <div className="flex flex-col">
-                        <span className="font-semibold">{user.name}</span>
-                        <span className="text-xs text-gray-500">{user.email}</span>
+                        {/* AQUI MUDOU: Acessamos item.user.name pois o Prisma traz aninhado */}
+                        <span className="font-semibold">{item.user?.name || "Sem Nome"}</span>
+                        <span className="text-xs text-gray-500">{item.user?.email}</span>
+                        {/* Exibe qual idoso ele cuida, se disponível */}
+                        {item.elder?.name && (
+                            <span className="text-[10px] text-blue-500 mt-1">Cuida de: {item.elder.name}</span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary">Membro</Badge>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(user._id, 'colaborador')}>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id, 'colaborador')}>
                           <Trash2 className="w-4 h-4 text-red-500" />
                         </Button>
                       </div>
@@ -185,10 +189,10 @@ export function AdminPainel() {
                   <Loader2 className="animate-spin text-emerald-500" />
                 ) : idosos.length > 0 ? (
                   idosos.map(idoso => (
-                    <div key={idoso._id} className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex justify-between items-center">
+                    <div key={idoso.id} className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex justify-between items-center">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold">
-                          {idoso.name[0]}
+                          {idoso.name?.[0] || "?"}
                         </div>
                         <div className="flex flex-col">
                             <span className="font-medium text-emerald-900">{idoso.name}</span>
@@ -197,7 +201,7 @@ export function AdminPainel() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge className="bg-emerald-200 text-emerald-800 hover:bg-emerald-200">Ativo</Badge>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(idoso._id, 'idoso')}>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(idoso.id, 'idoso')}>
                           <Trash2 className="w-4 h-4 text-red-500" />
                         </Button>
                       </div>
@@ -219,55 +223,54 @@ export function AdminPainel() {
         </div>
       </div>
 
-      {/* MODAL DE CADASTRO */}
+      {/* MODAL DE CADASTRO (MANTIDO IGUAL) */}
       <Dialog open={showCadastroDialog} onOpenChange={setShowCadastroDialog}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Cadastro de Idoso</DialogTitle>
-            <DialogDescription>Insira as informações conforme os registros médicos.</DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid grid-cols-2 gap-4 py-4">
-            <div className="col-span-2 space-y-2">
-              <Label>Nome Completo</Label>
-              <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+                <DialogTitle>Cadastro de Idoso</DialogTitle>
+                <DialogDescription>Insira as informações conforme os registros médicos.</DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4 py-4">
+               {/* FORMULÁRIO MANTIDO IGUAL AO SEU ORIGINAL */}
+               <div className="col-span-2 space-y-2">
+                  <Label>Nome Completo</Label>
+                  <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+               </div>
+               <div className="space-y-2">
+                  <Label>CPF</Label>
+                  <Input value={formData.cpf} onChange={e => setFormData({...formData, cpf: e.target.value})} />
+               </div>
+               <div className="space-y-2">
+                  <Label>Idade</Label>
+                  <Input type="number" value={formData.age} onChange={e => setFormData({...formData, age: e.target.value})} />
+               </div>
+               <div className="space-y-2">
+                  <Label>Data de Nascimento</Label>
+                  <Input type="date" value={formData.birthData} onChange={e => setFormData({...formData, birthData: e.target.value})} />
+               </div>
+               <div className="space-y-2">
+                  <Label>Contato de Emergência</Label>
+                  <Input value={formData.emergencyContact} onChange={e => setFormData({...formData, emergencyContact: e.target.value})} />
+               </div>
+               <div className="col-span-2 border-t pt-4 mt-2">
+                  <p className="text-sm font-bold text-gray-500 mb-4">Dados de Acesso (Login)</p>
+               </div>
+               <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+               </div>
+               <div className="space-y-2">
+                  <Label>Senha Temporária</Label>
+                  <Input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+               </div>
             </div>
-            <div className="space-y-2">
-              <Label>CPF</Label>
-              <Input value={formData.cpf} onChange={e => setFormData({...formData, cpf: e.target.value})} />
-            </div>
-            <div className="space-y-2">
-              <Label>Idade</Label>
-              <Input type="number" value={formData.age} onChange={e => setFormData({...formData, age: e.target.value})} />
-            </div>
-            <div className="space-y-2">
-              <Label>Data de Nascimento</Label>
-              <Input type="date" value={formData.birthData} onChange={e => setFormData({...formData, birthData: e.target.value})} />
-            </div>
-            <div className="space-y-2">
-              <Label>Contato de Emergência</Label>
-              <Input value={formData.emergencyContact} onChange={e => setFormData({...formData, emergencyContact: e.target.value})} />
-            </div>
-            <div className="col-span-2 border-t pt-4 mt-2">
-              <p className="text-sm font-bold text-gray-500 mb-4">Dados de Acesso (Login)</p>
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-            </div>
-            <div className="space-y-2">
-              <Label>Senha Temporária</Label>
-              <Input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowCadastroDialog(false)}>Cancelar</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleCadastrarIdoso} disabled={loading}>
-              {loading ? "Cadastrando..." : "Confirmar Cadastro"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+            <DialogFooter>
+               <Button variant="ghost" onClick={() => setShowCadastroDialog(false)}>Cancelar</Button>
+               <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleCadastrarIdoso} disabled={loading}>
+                  {loading ? "Cadastrando..." : "Confirmar Cadastro"}
+               </Button>
+            </DialogFooter>
+         </DialogContent>
       </Dialog>
     </>
   )

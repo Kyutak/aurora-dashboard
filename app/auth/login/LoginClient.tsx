@@ -89,7 +89,7 @@ export default function LoginClient() {
       const role = user.role?.trim().toUpperCase();
       setTimeout(() => {
         if (role === "FAMILIAR") router.push("/admin/dashboard");
-        else if (role === "FAMILIAR_COLABORADOR") router.push("/familiar/dashboard");
+        else if (role === "COLLABORATOR") router.push("/familiar/dashboard");
         else if (role === "IDOSO") router.push("/idoso/dashboard");
         else setError("Tipo de usuário não reconhecido");
       }, 200); 
