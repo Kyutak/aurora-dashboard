@@ -1,7 +1,7 @@
 "use client"
 import { useEffect } from "react"
 import { FamiliarSidebar } from "@/components/layout/familiar-sidebar"
-import { SharedDashboard } from "@/components/dashboard"
+import { SharedLembretes} from "@/components/dashboard"
 
 export default function FamiliarDashboard() {
   useEffect(() => {
@@ -15,7 +15,7 @@ export default function FamiliarDashboard() {
     <div className="flex min-h-screen bg-background">
       <FamiliarSidebar />
       <main className="flex-1 overflow-x-hidden pb-24 md:pb-8">
-        <SharedDashboard userType="familiar" />
+        <SharedLembretes userType="familiar" />
       </main>
     </div>
   )
