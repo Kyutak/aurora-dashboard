@@ -1,31 +1,37 @@
 "use client"
 
+"use client"
+
 export type UserRole = "FAMILIAR" | "FAMILIAR_COLABORADOR" | "IDOSO"
 
 export interface SessionUser {
-  user: any
   id: string
   name: string
   email: string
   role: UserRole
+  elderId?: string;
+  elderProfileId?: string; // ID do perfil (bee5)
   status: string
 }
 
 const STORAGE_KEY = "user"
 
-
 export function setSessionUser(response: any) {
   if (typeof window === "undefined") return
 
-  const user = response?.data?.user
+  // Baseado na sua imagem a3ba19.png, os dados estão dentro de response.data.user ou direto em response.user
+  const user = response?.data?.user || response?.user
 
   if (!user) return
 
   const sessionUser: SessionUser = {
-    id: user.id,
+    id: user.id || user._id,
     name: user.name,
     email: user.email,
     role: user.role,
+    // CORREÇÃO AQUI: Mapeando os campos que vimos no seu console
+    elderId: user.elderId, 
+    elderProfileId: user.elderProfileId, // O ID bee5 que precisamos
     status: user.status,
   }
 

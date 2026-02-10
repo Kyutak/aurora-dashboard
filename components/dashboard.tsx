@@ -1,141 +1,175 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash2, Crown, Pill, Utensils, Repeat, Mic, CheckCircle, Circle, CalendarDays, Loader2 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { CircleDashedIcon, Pill, Utensils, Repeat, Loader2, Users, CalendarDays } from "lucide-react"
 import { LembreteModal } from "@/features/reminder-modal"
 import { useToast } from "@/hooks/use-toast"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { getSessionUser } from "@/lib/auth-state"
-// Importando os serviços do MongoDB
-import { createReminder, getDailyReminders, markReminderAsDone } from "@/service/remiders.service"
+import { CalendarTimeline } from "@/components/ui/calendar-timeline"
+import { getSessionUser, getUserLabel, SessionUser } from "@/lib/auth-state"
+import { getDailyReminders, createReminder, markReminderAsDone } from "@/service/remiders.service"
+import { elderService } from "@/service/elder.service"
 
-interface SharedLembretesProps {
-  userType: "familiar" | "admin"
-}
-
-export function SharedLembretes({ userType }: SharedLembretesProps) {
+export function SharedDashboard({ userType }: { userType: string }) {
   const { toast } = useToast()
   const [lembretes, setLembretes] = useState<any[]>([])
+  const [elders, setElders] = useState<any[]>([])
+  const [selectedElderId, setSelectedElderId] = useState<string>("")
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<SessionUser | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const [lembreteParaEditar, setLembreteParaEditar] = useState<any>()
-  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false)
 
-  // Pegando o id do idoso de forma segura
-  const session = getSessionUser() as any; 
-  const elderId = session?.elderId;
-
-  // Função para buscar dados do Banco
-  const carregarDados = useCallback(async () => {
-    if (!elderId) {
-        setLoading(false);
-        return;
-    }
+  const carregarLembretes = useCallback(async (id: string) => {
+    if (!id) return
     try {
       setLoading(true)
-      const data = await getDailyReminders(elderId)
-      setLembretes(data)
+      const data = await getDailyReminders(id)
+      setLembretes(data || [])
     } catch (error) {
-      toast({ title: "Erro", description: "Falha ao conectar com o banco de dados.", variant: "destructive" })
+      setLembretes([])
     } finally {
       setLoading(false)
     }
-  }, [elderId, toast])
+  }, [])
 
   useEffect(() => {
-    carregarDados()
-  }, [carregarDados])
+    const init = async () => {
+      const currentUser = getSessionUser()
+      setUser(currentUser)
 
-  // Suas funções auxiliares originais (Mantidas para não dar erro de 'not found')
-  const getTipoIcon = (tipo: string) => {
-    switch (tipo) {
-      case "medicamento": return <Pill className="w-6 h-6 text-pink-500" />
-      case "refeicao": return <Utensils className="w-6 h-6 text-orange-500" />
-      case "rotina": return <Repeat className="w-6 h-6 text-blue-500" />
-      case "lembrete-voz": return <Mic className="w-6 h-6 text-emerald-500" />
-      case "evento": return <CalendarDays className="w-6 h-6 text-green-600" />
-      default: return null
+      // SE FOR IDOSO: Usa o ID que veio no token e não carrega lista de outros
+      if (currentUser?.role === "IDOSO" && currentUser.elderId) {
+        setSelectedElderId(currentUser.elderId)
+        carregarLembretes(currentUser.elderId)
+      } 
+      // SE FOR ADMIN/FAMILIAR: Carrega a lista de idosos sob gestão
+      else {
+        try {
+          const response = await elderService.getMyElders()
+          const lista = response.data || []
+          setElders(lista)
+          if (lista.length > 0) {
+            const idInicial = lista[0].id || lista[0]._id
+            setSelectedElderId(idInicial)
+            carregarLembretes(idInicial)
+          }
+        } catch (e) {
+          console.error("Erro ao carregar idosos:", e)
+        }
+      }
     }
-  }
+    init()
+  }, [carregarLembretes])
 
-  const getDiasSemanaLabel = (dias?: number[]) => {
-    if (!dias || dias.length === 0) return ""
-    const labels = ["D", "S", "T", "Q", "Q", "S", "S"]
-    return dias.map((d) => labels[d]).join(", ")
-  }
-
-  const handleCriarLembrete = async (dados: any) => {
+  const handleSalvarLembrete = async (dados: any) => {
     try {
-      if (!elderId) return toast({ title: "Erro", description: "ID do idoso não encontrado." });
-
-      await createReminder({
-        title: dados.titulo,
-        time: dados.horario,
-        type: dados.tipo,
-        daysOfWeek: dados.diasSemana || [0,1,2,3,4,5,6],
-        elderId: elderId
-      })
-      
-      toast({ title: "✅ Sucesso", description: "Lembrete salvo no MongoDB!" })
-      setModalOpen(false)
-      carregarDados() // Atualiza a lista
+      await createReminder(dados);
+      toast({ title: "Lembrete agendado!" });
+      setModalOpen(false);
+      carregarLembretes(selectedElderId); // Recarrega a lista no painel
     } catch (error) {
-      toast({ title: "Erro", description: "Erro ao salvar.", variant: "destructive" })
+      toast({ title: "Erro ao criar", variant: "destructive" });
     }
-  }
+  };
 
-  const handleDeletar = async (id: string) => {
+  const handleConcluir = async (id: string) => {
     try {
-        await markReminderAsDone(id);
-        toast({ title: "🗑️ Excluído", description: "Removido do banco de dados." });
-        carregarDados();
-    } catch (e) {
-        toast({ title: "Erro", description: "Erro ao deletar.", variant: "destructive" });
+      // Otimista: remove da lista antes da chamada terminar
+      setLembretes(prev => prev.filter(l => (l.id || l._id) !== id))
+      await markReminderAsDone(id)
+      toast({ title: "Concluído!" })
+    } catch (error) {
+      carregarLembretes(selectedElderId)
+      toast({ title: "Erro ao concluir", variant: "destructive" })
     }
   }
-
-  const lembretesVoz = lembretes.filter((l) => l.type === "lembrete-voz")
-  const limiteAtingido = lembretesVoz.length >= 2
-
-  if (loading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin w-10 h-10 text-teal-500" /></div>
 
   return (
-    <>
-      <div className="relative min-h-screen overflow-hidden bg-gray-100 dark:bg-gray-900 my-[-28px]">
-        <div aria-hidden className="pointer-events-none absolute top-0 left-0 w-full h-[400px] bg-gradient-to-br from-blue-500 via-teal-500 to-teal-400" />
-
-        <div className="relative z-10 pt-56 md:pt-64">
-           {/* ... Mantenha o JSX original de Título e Header aqui ... */}
-           <div className="bg-zinc-50 dark:bg-gray-900 rounded-t-[32px] p-6 min-h-[calc(100vh-220px)] mt-[-40px]">
-              <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-bold">Editar lembretes</h2>
-                <Button onClick={() => { setLembreteParaEditar(undefined); setModalOpen(true); }} className="rounded-full bg-emerald-500"><Plus /></Button>
+    <div className="relative min-h-screen bg-gray-100 dark:bg-gray-900">
+      <div className="absolute top-0 left-0 w-full h-[350px] bg-gradient-to-br from-blue-600 to-emerald-400" />
+      <div className="relative z-10 pt-20 pb-10 px-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between mb-8 text-white">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center font-bold text-xl backdrop-blur-md border border-white/30">
+                {user?.name?.charAt(0)}
               </div>
-
-              <div className="space-y-3 mt-8">
-                {lembretes.map((lembrete) => (
-                  <div key={lembrete.id} className={`flex items-center gap-4 p-4 rounded-xl border bg-white`}>
-                    <div className="w-12 h-12 rounded-full border flex items-center justify-center">
-                      {getTipoIcon(lembrete.type)}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold">{lembrete.title}</p>
-                      <Badge variant="outline">{lembrete.time}</Badge>
-                    </div>
-                    <Button onClick={() => handleDeletar(lembrete.id)} variant="destructive" size="sm">
-                       <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
+              <div>
+                <h1 className="text-2xl font-bold">Olá, {user?.name}</h1>
+                <p className="text-sm opacity-80">{user?.role ? getUserLabel(user.role) : "Gestor"}</p>
               </div>
-           </div>
+            </div>
+            
+            {/* Seletor só aparece para quem não é o idoso logado */}
+            {user?.role !== "IDOSO" && elders.length > 0 && (
+              <div className="flex items-center gap-2 bg-black/20 p-2 px-4 rounded-xl backdrop-blur-md border border-white/10">
+                <Users className="w-4 h-4" />
+                <select 
+                  value={selectedElderId} 
+                  onChange={(e) => {
+                    setSelectedElderId(e.target.value)
+                    carregarLembretes(e.target.value)
+                  }}
+                  className="bg-transparent text-sm font-bold outline-none cursor-pointer appearance-none"
+                >
+                  {elders.map(e => (
+                    <option key={e.id || e._id} value={e.id || e._id} className="text-black">
+                      {e.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white dark:bg-zinc-950 rounded-[32px] shadow-xl p-6 min-h-[500px]">
+             <div className="flex items-center justify-between mb-6">
+               <h2 className="text-xl font-bold">Painel Diário</h2>
+               {user?.role !== "IDOSO" && (
+                 <Button onClick={() => setModalOpen(true)} className="bg-emerald-500 hover:bg-emerald-600 rounded-full">
+                   + Novo Lembrete
+                 </Button>
+               )}
+             </div>
+
+             <CalendarTimeline />
+
+             <div className="mt-8 space-y-4">
+               {loading ? (
+                 <div className="flex justify-center py-10"><Loader2 className="animate-spin text-emerald-500" /></div>
+               ) : lembretes.length > 0 ? (
+                 lembretes.map((l) => (
+                   <div key={l.id || l._id} className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-zinc-900 rounded-2xl border-l-4 border-emerald-500">
+                     <div className="text-emerald-500">
+                       {l.type === 'Medicamento' && <Pill className="w-6 h-6" />}
+                       {l.type === 'Refeição' && <Utensils className="w-6 h-6" />}
+                       {l.type === 'Rotina' && <Repeat className="w-6 h-6" />}
+                       {l.type === 'Evento' && <CalendarDays className="w-6 h-6" />}
+                     </div>
+                     <div className="flex-1">
+                       <p className="font-bold">{l.title}</p>
+                       <p className="text-xs text-gray-400 font-bold uppercase">{l.time} • {l.type}</p>
+                     </div>
+                     <Button variant="ghost" size="icon" onClick={() => handleConcluir(l.id || l._id)}>
+                       <CircleDashedIcon className="w-7 h-7 text-gray-300 hover:text-emerald-500 transition-colors" />
+                     </Button>
+                   </div>
+                 ))
+               ) : (
+                 <p className="text-center text-gray-400 py-10">Nenhum lembrete para hoje.</p>
+               )}
+             </div>
+          </div>
         </div>
       </div>
 
-      <LembreteModal open={modalOpen} onOpenChange={setModalOpen} onSave={handleCriarLembrete} lembrete={lembreteParaEditar} />
-    </>
+      <LembreteModal 
+        open={modalOpen} 
+        onOpenChange={setModalOpen} 
+        onSave={handleSalvarLembrete} // Vincula a função de salvar
+        elders={elders} 
+        defaultElderId={selectedElderId} 
+      />
+    </div>
   )
 }

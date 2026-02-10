@@ -6,14 +6,11 @@ import { SharedLembretes } from "@/components/reminders"
 
 export default function LembretesPage() {
   useEffect(() => {
-    window.scrollTo({
-      top: 49,
-      behavior: "auto",
-    })
+    window.scrollTo({ top: 0, behavior: "smooth" })
   }, [])
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background text-foreground">
       <FamiliarSidebar />
       <main className="flex-1 overflow-x-hidden pb-24 md:pb-8">
         <SharedLembretes userType="familiar" />

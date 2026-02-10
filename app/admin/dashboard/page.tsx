@@ -2,13 +2,13 @@
 
 import React, { useEffect } from "react"
 import { AdminSidebar } from "@/components/layout/admin-sidebar"
-import { SharedLembretes} from "@/components/dashboard"
+import { SharedDashboard } from "@/components/dashboard" // Verifique se o nome é este
 
 export default function AdminDashboard() {
   
   useEffect(() => {
     window.scrollTo({
-      top: 49, // ajuste aqui (px)
+      top: 49,
       behavior: "auto",
     })
   }, [])
@@ -18,7 +18,8 @@ export default function AdminDashboard() {
       <AdminSidebar />
 
       <main className="flex-1 overflow-x-hidden pb-24 md:pb-8">
-        <SharedLembretes userType="admin" />
+        {/* Usamos o Dashboard completo, passando o tipo admin */}
+        <SharedDashboard userType="admin" />
       </main>
     </div>
   )

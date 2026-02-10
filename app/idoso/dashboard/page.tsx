@@ -1,197 +1,190 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import {
   Clock,
-  Bell,
-  MicIcon,
   Pill,
   Utensils,
   Repeat,
-  Mic,
   CalendarDays,
   CheckCircle,
   Circle,
-  LogOut,
+  Loader2,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { EmergencyButton } from "@/features/emergency-button"
-import { VoiceRecorderModal } from "@/features/voice-recorder"
-import { sharedState } from "@/lib/shared-state"
-import { getSessionUser } from "@/lib/auth-state"
+import { getSessionUser, SessionUser } from "@/lib/auth-state"
 import { Badge } from "@/components/ui/badge"
-import Image from "next/image"
+
+import { 
+  getDailyReminders, 
+  markReminderAsDone, 
+  ReminderData 
+} from "@/service/remiders.service"
 
 export default function IdosoDashboard() {
   const { toast } = useToast()
   const router = useRouter()
   
-  const [userName, setUserName] = useState("...")
-  const [isRecorderOpen, setIsRecorderOpen] = useState(false)
-  const [lembretes, setLembretes] = useState(sharedState.getLembretes())
-  const [botaoEmergenciaAtivo, setBotaoEmergenciaAtivo] = useState(true)
-  const [lembretesCompletos, setLembretesCompletos] = useState<Set<string>>(new Set())
+  const [user, setUser] = useState<SessionUser | null>(null)
+  const [lembretes, setLembretes] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [dataAtual, setDataAtual] = useState("")
 
+  // Usamos um useCallback que não reseta o loading para atualizações silenciosas
+  const fetchLembretes = useCallback(async (elderId: string, silent = false) => {
+    try {
+      if (!silent) setLoading(true)
+      const data = await getDailyReminders(elderId)
+      setLembretes(data || [])
+    } catch (error: any) {
+      console.error("Erro na busca de lembretes:", error)
+      if (!silent) toast({ title: "Erro ao atualizar lista", variant: "destructive" })
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }, [toast])
+
   useEffect(() => {
-    // 1. Pega a sessão
     const session = getSessionUser()
-    
-    const seveName = localStorage.getItem("userName");
-      if (seveName) {
-      setUserName(seveName);
-    } else {
-      // 2. CASO NÃO TENHA, TENTA PEGAR DA SESSÃO
-      const session = getSessionUser();
-      const sessionName = session?.user?.name || session?.user?.name;
-      if (sessionName) setUserName(sessionName);
-    }
-    
-    if (session?.user?.name) {
-    setUserName(session.user.name);
-    }
-    // 2. Data Atual
+    setUser(session)
+    const idDoIdoso = session?.elderId || session?.elderProfileId || (session as any)?.id;
+
+    // 1. Configuração da data
     const hoje = new Date()
     const dataFormatada = hoje.toLocaleDateString("pt-BR", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
+      weekday: "long", year: "numeric", month: "long", day: "numeric",
     })
     setDataAtual(dataFormatada.charAt(0).toUpperCase() + dataFormatada.slice(1))
 
-    // 3. Sync com Shared State
-    const unsubscribe = sharedState.subscribe(() => {
-      setLembretes(sharedState.getLembretes())
-      const prefs = sharedState.getPreferencias()
-      setBotaoEmergenciaAtivo(prefs.botaoEmergenciaAtivo)
-      setLembretesCompletos(new Set(sharedState.getLembretesCompletos()))
-    })
+    if (idDoIdoso) {
+      // 2. Busca inicial (com loading na tela)
+      fetchLembretes(idDoIdoso)
 
-    // Cleanup corrigido (Sintaxe OK agora)
-    return () => {
-      unsubscribe()
+      // 3. EFEITO DE ATUALIZAÇÃO AUTOMÁTICA (Polling)
+      // Verifica novos lembretes a cada 30 segundos
+      const interval = setInterval(() => {
+        console.log("Sincronizando dados em segundo plano...")
+        fetchLembretes(idDoIdoso, true) // Passamos 'true' para não mostrar o spinner de carregamento
+      }, 30000); // 30000ms = 30 segundos
+
+      // Limpa o intervalo se o usuário sair da tela
+      return () => clearInterval(interval)
+    } else {
+      setLoading(false)
     }
-  }, [router])
-
+  }, [fetchLembretes])
+  
   const handleLogout = () => {
-    // Importante: Limpar o cookie que o seu middleware checa!
     document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
     sessionStorage.removeItem("authToken")
     router.push("/auth/login")
   }
 
-  // --- Funções de Apoio ---
-  const getTipoIcon = (tipo: string) => {
-    switch (tipo) {
-      case "medicamento": return <Pill className="w-10 h-10 text-pink-500" />
-      case "refeicao": return <Utensils className="w-10 h-10 text-orange-500" />
-      case "rotina": return <Repeat className="w-10 h-10 text-blue-500" />
-      case "lembrete-voz": return <Mic className="w-10 h-10 text-emerald-500" />
-      case "evento": return <CalendarDays className="w-10 h-10 text-green-600" />
-      default: return <Bell className="w-10 h-10 text-blue-600" />
+  const handleToggleCompleto = async (reminderId: string) => {
+    const idDoIdoso = user?.elderId || (user as any)?.id || (user as any)?._id
+    
+    try {
+      // Otimismo na UI: Suporta tanto .id quanto ._id
+      setLembretes(prev => prev.map(l => {
+        const currentId = l.id || l._id
+        return currentId === reminderId ? { ...l, isCompleted: true } : l
+      }))
+      
+      await markReminderAsDone(reminderId)
+      toast({ title: "✅ Concluído!" })
+      
+      // Recarrega para garantir sincronia com o banco
+      if (idDoIdoso) fetchLembretes(idDoIdoso)
+    } catch (error) {
+      toast({ title: "Erro ao marcar como concluído", variant: "destructive" })
+      if (idDoIdoso) fetchLembretes(idDoIdoso)
     }
   }
 
-  const handleToggleCompleto = (id: string) => {
-    sharedState.toggleLembreteCompleto(id)
-    toast({
-      title: sharedState.isLembreteCompleto(id) ? "✅ Tarefa feita!" : "Lembrete reativado",
-    })
+  const getTipoIcon = (tipo: string) => {
+    const t = tipo?.toLowerCase() || ""
+    if (t.includes("medicamento") || t.includes("pill")) return <Pill className="w-10 h-10 text-pink-500" />
+    if (t.includes("refeicao") || t.includes("refeição") || t.includes("utensils")) return <Utensils className="w-10 h-10 text-orange-500" />
+    if (t.includes("rotina") || t.includes("repeat")) return <Repeat className="w-10 h-10 text-blue-500" />
+    if (t.includes("evento") || t.includes("calendar")) return <CalendarDays className="w-10 h-10 text-green-600" />
+    return <Clock className="w-10 h-10 text-blue-600" />
   }
 
-  const lembretesHoje = lembretes.filter((l) => {
-    const hoje = new Date().getDate()
-    const dataLembrete = new Date(l.data).getDate()
-    return l.repeticao === "Diária" || hoje === dataLembrete
-  })
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <Loader2 className="w-12 h-12 animate-spin text-emerald-600" />
+    </div>
+  )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 p-4 md:p-8">
+    <div className="min-h-screen bg-[#FDFDFD] p-4 md:p-8 font-sans">
       <div className="max-w-4xl mx-auto space-y-8">
         
-        {/* Header */}
         <div className="flex items-start justify-between">
-          <div className="text-left">
-            <h1 className="text-4xl md:text-6xl font-black text-emerald-600">Aurora</h1>
-            <p className="text-gray-500 text-xl font-medium">Olá, {userName}!</p>
+          <div>
+            <h1 className="text-5xl font-black text-emerald-600 tracking-tighter">Aurora</h1>
+            <p className="text-xl text-gray-500 font-medium">Olá, {user?.name}!</p>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <div className="bg-white p-2 rounded-2xl shadow-sm border border-emerald-100">
-               <Image src="/images/aurora-logo.png" alt="Logo" width={50} height={50} />
-            </div>
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-red-500 font-bold hover:bg-red-50">
-              <LogOut className="w-4 h-4 mr-2" /> Sair
-            </Button>
-          </div>
+          <Button variant="ghost" onClick={handleLogout} className="text-red-500 font-bold hover:bg-red-50">Sair</Button>
         </div>
 
-        <div className="h-1 bg-gradient-to-r from-emerald-400 to-blue-500 rounded-full" />
-        <p className="text-2xl font-bold text-center text-gray-700">{dataAtual}</p>
+        <p className="text-2xl font-bold text-center text-gray-700 bg-white p-6 rounded-3xl shadow-sm border border-emerald-50">
+          {dataAtual}
+        </p>
 
-        {/* Botão de Emergência */}
-        {botaoEmergenciaAtivo && (
-          <div className="py-4">
-             <EmergencyButton onEmergency={() => toast({ title: "🚨 Ajuda chamada!", variant: "destructive" })} />
-          </div>
-        )}
+        <EmergencyButton onEmergency={() => {}} />
 
-        {/* Lembretes */}
         <div className="space-y-4">
-          <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-800">
-            <Clock className="w-6 h-6 text-emerald-600" /> Lembretes de Hoje
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-800 ml-2">O que temos para hoje?</h2>
 
-          {lembretesHoje.length > 0 ? (
-            lembretesHoje.map((lembrete) => {
-              const concluido = lembretesCompletos.has(lembrete.id)
+          {lembretes.length > 0 ? (
+            lembretes.map((l) => {
+              const currentId = l.id || l._id; // Captura o ID correto do objeto
               return (
                 <Card 
-                  key={lembrete.id} 
-                  className={`p-5 border-2 transition-all ${concluido ? "bg-gray-50 border-gray-200" : "bg-white border-emerald-100 shadow-lg"}`}
+                  key={currentId} 
+                  onClick={() => !l.isCompleted && currentId && handleToggleCompleto(currentId)}
+                  className={`p-6 border-4 transition-all active:scale-95 cursor-pointer rounded-[32px] ${
+                    l.isCompleted 
+                      ? "opacity-60 bg-gray-100 border-transparent shadow-none" 
+                      : "bg-white border-white shadow-xl shadow-emerald-100/50"
+                  }`}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="bg-emerald-50 p-3 rounded-full">{getTipoIcon(lembrete.tipo)}</div>
-                    <div className="flex-1">
-                      <p className={`text-xl font-bold ${concluido ? "line-through text-gray-400" : "text-gray-800"}`}>
-                        {lembrete.titulo}
-                      </p>
-                      <Badge variant="outline" className="text-md mt-1 border-emerald-200">{lembrete.horario}</Badge>
+                  <div className="flex items-center gap-6">
+                    <div className={`p-5 rounded-2xl ${l.isCompleted ? 'bg-gray-200' : 'bg-emerald-50'}`}>
+                      {getTipoIcon(l.type)}
                     </div>
-                    <button onClick={() => handleToggleCompleto(lembrete.id)} className="p-2">
-                      {concluido ? <CheckCircle className="w-14 h-14 text-emerald-500" /> : <Circle className="w-14 h-14 text-gray-300" />}
-                    </button>
+                    <div className="flex-1">
+                      <p className={`text-3xl font-black leading-tight ${l.isCompleted ? "line-through text-gray-400" : "text-gray-800"}`}>
+                        {l.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge className={`text-lg px-4 py-1 rounded-full ${l.isCompleted ? "bg-gray-300" : "bg-emerald-500"}`}>
+                          {l.time}
+                        </Badge>
+                      </div>
+                    </div>
+                    {l.isCompleted ? (
+                      <CheckCircle className="w-20 h-20 text-emerald-500" />
+                    ) : (
+                      <Circle className="w-20 h-20 text-gray-100" />
+                    )}
                   </div>
                 </Card>
               )
             })
           ) : (
-            <div className="text-center py-10 text-gray-400 border-2 border-dashed rounded-3xl">
-              Nenhum lembrete para agora.
+            <div className="text-center py-24 border-4 border-dashed rounded-[40px] border-gray-100 bg-gray-50/50">
+              <p className="text-2xl font-bold text-gray-400">Tudo limpo por aqui!</p>
+              <p className="text-gray-400 mt-2">Você não tem lembretes agendados.</p>
             </div>
           )}
         </div>
-
-        {/* Botão de Voz */}
-        <div className="pt-6">
-          <Button
-            onClick={() => setIsRecorderOpen(true)}
-            className="w-full h-32 text-2xl font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-[40px] shadow-2xl flex flex-col gap-2"
-          >
-            <MicIcon size={44} />
-            Gravar Lembrete
-          </Button>
-        </div>
       </div>
-
-      <VoiceRecorderModal 
-        isOpen={isRecorderOpen} 
-        onClose={() => setIsRecorderOpen(false)} 
-        onSaveReminder={() => {}} 
-      />
     </div>
   )
 }

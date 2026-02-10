@@ -13,9 +13,10 @@ interface VoiceRecorderModalProps {
   isOpen: boolean
   onClose: () => void
   onSaveReminder: (text: string, date: Date) => void
+  userType?: string;
 }
 
-export function VoiceRecorderModal({ isOpen, onClose, onSaveReminder }: VoiceRecorderModalProps) {
+export function VoiceRecorderModal({ isOpen, onClose, onSaveReminder, userType }: VoiceRecorderModalProps) {
   const [isRecording, setIsRecording] = useState(false)
   const [recordedText, setRecordedText] = useState("")
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)

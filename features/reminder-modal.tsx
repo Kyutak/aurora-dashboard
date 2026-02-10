@@ -1,235 +1,123 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useEffect, useState } from "react"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar } from "@/components/ui/calendar"
-import { pt } from "date-fns/locale"
 
-interface Lembrete {
-  id: string
-  titulo: string
-  horario: string
-  tipo: "medicamento" | "refeicao" | "lembrete-voz" | "rotina" | "evento"
-  repeticao?: string
-  diasSemana?: number[]
-  data?: Date
-}
-
-//pop-up de definição de lembretes padrão
-
-interface LembreteModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSave: (lembrete: any) => void
-  lembrete?: any
-  canEdit?: boolean
-}
-
-export function LembreteModal({ open, onOpenChange, onSave, lembrete, canEdit = false }: LembreteModalProps) {
-  const [titulo, setTitulo] = useState("")
-  const [horario, setHorario] = useState("09:00")
-  const [tipo, setTipo] = useState<"medicamento" | "refeicao" | "rotina" | "evento">("medicamento")
-  const [repeticao, setRepeticao] = useState("Diária")
-  const [diasSemana, setDiasSemana] = useState<number[]>([])
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
+export function LembreteModal({ open, onOpenChange, onSave, elders, lembrete, defaultElderId }: any) {
+  const [title, setTitle] = useState("") 
+  const [time, setTime] = useState("")
+  const [type, setType] = useState("Medicamento")
+  const [elderId, setElderId] = useState("")
 
   useEffect(() => {
-    if (lembrete) {
-      setTitulo(lembrete.titulo)
-      setHorario(lembrete.horario)
-      if (lembrete.tipo !== "lembrete-voz") {
-        setTipo(lembrete.tipo)
-      }
-      setRepeticao(lembrete.repeticao || "Diária")
-      setDiasSemana(lembrete.diasSemana || [])
-      setSelectedDate(lembrete.data ? new Date(lembrete.data) : undefined)
-    } else {
-      setTitulo("")
-      setHorario("09:00")
-      setTipo("medicamento")
-      setRepeticao("Diária")
-      setDiasSemana([])
-      setSelectedDate(undefined)
+    if (open) {
+      setTitle(lembrete?.title || "")
+      setTime(lembrete?.time || "")
+      setType(lembrete?.type || "Medicamento")
+      
+      // Garante que pegamos o ID correto seja do Mongo (_id) ou da API (id)
+      const idParaSetar = lembrete?.elderId || defaultElderId || (elders.length > 0 ? (elders[0]._id || elders[0].id) : "")
+      setElderId(idParaSetar)
     }
-  }, [lembrete, open])
+  }, [open, lembrete, defaultElderId, elders])
 
-  useEffect(() => {
-    if (tipo === "evento") {
-      setRepeticao("Única")
-    }
-  }, [tipo])
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    let finalDate = new Date()
-    if ((tipo === "evento" || lembrete?.tipo === "lembrete-voz") && selectedDate) {
-      const [hours, minutes] = horario.split(":").map(Number)
-      finalDate = new Date(selectedDate)
-      finalDate.setHours(hours, minutes, 0, 0)
+    
+    if (!elderId) {
+      alert("Por favor, selecione um idoso.")
+      return
     }
 
-    onSave({
-      titulo,
-      horario,
-      tipo: lembrete?.tipo === "lembrete-voz" ? "lembrete-voz" : tipo,
-      repeticao: tipo === "evento" || lembrete?.tipo === "lembrete-voz" ? "Única" : repeticao,
-      diasSemana: repeticao === "Semanal" ? diasSemana : undefined,
-      data: finalDate,
-    })
-  }
-
-  const toggleDia = (dia: number) => {
-    if (diasSemana.includes(dia)) {
-      setDiasSemana(diasSemana.filter((d) => d !== dia))
-    } else {
-      setDiasSemana([...diasSemana, dia].sort())
+    const payload = {
+      title,
+      time,
+      type,
+      elderId,
+      daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      isCompleted: false
     }
+
+    console.log("Enviando dados:", payload) // Para você ver no console se disparou
+    onSave(payload)
   }
-
-  const isLembreteVoz = lembrete?.tipo === "lembrete-voz"
-  const isEvento = tipo === "evento"
-  // Show calendar for both evento and lembrete-voz types
-  const showCalendar = isEvento || isLembreteVoz
-
-  const diasDaSemana = [
-    { label: "D", value: 0 },
-    { label: "S", value: 1 },
-    { label: "T", value: 2 },
-    { label: "Q", value: 3 },
-    { label: "Q", value: 4 },
-    { label: "S", value: 5 },
-    { label: "S", value: 6 },
-  ]
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[425px] rounded-[24px] bg-white border-none shadow-2xl">
         <DialogHeader>
-          <DialogTitle>
-            {isLembreteVoz ? "Editar Lembrete de Voz" : lembrete ? "Editar Lembrete" : "Criar Novo Lembrete"}
+          <DialogTitle className="text-2xl font-bold text-gray-800">
+            {lembrete ? "Editar Lembrete" : "Novo Lembrete"}
           </DialogTitle>
-          <DialogDescription>
-            {isLembreteVoz
-              ? "Você pode editar o texto e horário deste lembrete de voz"
-              : "Configure o lembrete que será enviado para o idoso"}
-          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5 pt-4">
           <div className="space-y-2">
-            <Label htmlFor="titulo">Título</Label>
-            <Input
-              id="titulo"
-              value={titulo}
-              onChange={(e) => setTitulo(e.target.value)}
-              placeholder="Ex: Tomar remédio da pressão"
-              required
+            <Label className="text-gray-500 font-medium">Para qual idoso?</Label>
+            <Select value={elderId} onValueChange={setElderId}>
+              <SelectTrigger className="w-full bg-gray-50 h-12 rounded-xl border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-500 transition-all">
+                <SelectValue placeholder="Selecione o idoso" />
+              </SelectTrigger>
+              <SelectContent>
+                {elders?.map((e: any) => (
+                  <SelectItem key={e._id || e.id} value={e._id || e.id}>
+                    {e.name || e.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-gray-500 font-medium">O que ele deve fazer?</Label>
+            <Input 
+              value={title} 
+              onChange={(e) => setTitle(e.target.value)} 
+              required 
+              placeholder="Ex: Tomar remédio de pressão"
+              className="bg-gray-50 h-12 rounded-xl border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-500" 
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="horario">Horário</Label>
-            <Input id="horario" type="time" value={horario} onChange={(e) => setHorario(e.target.value)} required />
-          </div>
-
-          {!isLembreteVoz && (
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="tipo">Tipo</Label>
-              <Select
-                value={tipo}
-                onValueChange={(v) => setTipo(v as "medicamento" | "refeicao" | "rotina" | "evento")}
-              >
-                <SelectTrigger id="tipo">
+              <Label className="text-gray-500 font-medium">Horário</Label>
+              <Input 
+                type="time" 
+                value={time} 
+                onChange={(e) => setTime(e.target.value)} 
+                required 
+                className="bg-gray-50 h-12 rounded-xl border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-500" 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-gray-500 font-medium">Categoria</Label>
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger className="bg-gray-50 h-12 rounded-xl border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-500">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="medicamento">Medicamento</SelectItem>
-                  <SelectItem value="refeicao">Refeição</SelectItem>
-                  <SelectItem value="rotina">Rotina</SelectItem>
-                  <SelectItem value="evento">Evento</SelectItem>
+                  <SelectItem value="Medicamento">Medicamento</SelectItem>
+                  <SelectItem value="Refeição">Refeição</SelectItem>
+                  <SelectItem value="Rotina">Rotina</SelectItem>
+                  <SelectItem value="Evento">Evento</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          )}
-
-          {showCalendar ? (
-            <div className="space-y-2">
-              <Label>{isLembreteVoz ? "Data do Lembrete" : "Data do Evento"}</Label>
-              <div className="flex justify-center border rounded-md p-2">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  locale={pt}
-                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                  className="rounded-md"
-                  classNames={{
-                    day_selected: "bg-emerald-600 text-white hover:bg-emerald-700",
-                  }}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground text-center">Repetição: Única</p>
-            </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="repeticao">Repetição</Label>
-                <Select value={repeticao} onValueChange={setRepeticao}>
-                  <SelectTrigger id="repeticao">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Diária">Diária</SelectItem>
-                    <SelectItem value="Semanal">Semanal</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {repeticao === "Semanal" && (
-                <div className="space-y-2">
-                  <Label>Dias da Semana</Label>
-                  <div className="flex gap-2 justify-center">
-                    {diasDaSemana.map((dia) => (
-                      <button
-                        key={dia.value}
-                        type="button"
-                        onClick={() => toggleDia(dia.value)}
-                        className={`w-10 h-10 rounded-full font-semibold text-sm transition-all ${
-                          diasSemana.includes(dia.value)
-                            ? "bg-emerald-600 text-white shadow-lg scale-110"
-                            : "bg-muted text-muted-foreground hover:bg-muted/80"
-                        }`}
-                      >
-                        {dia.label}
-                      </button>
-                    ))}
-                  </div>
-                  {diasSemana.length === 0 && repeticao === "Semanal" && (
-                    <p className="text-xs text-destructive text-center">Selecione pelo menos um dia</p>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-
-          <div className="flex gap-2 justify-end pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={(repeticao === "Semanal" && diasSemana.length === 0) || (showCalendar && !selectedDate)}
-            >
-              Salvar
-            </Button>
           </div>
+
+          <DialogFooter className="mt-6">
+            <Button 
+              type="submit" 
+              className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-100 transition-all active:scale-95"
+            >
+              Salvar Lembrete
+            </Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
