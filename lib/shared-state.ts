@@ -69,8 +69,10 @@ const state: SharedState = {
   lembretesCompletos: new Set(),
 }
 
-// --- OBJETO COMPARTILHADO EXPORTADO ---
+// --- OBJETO COMPARTILHADO EXPORTADO (VERSÃO CORRIGIDA) ---
+
 export const sharedState = {
+  // 1. INFRAESTRUTURA E REATIVIDADE
   subscribe: (callback: () => void) => {
     state.listeners.add(callback)
     return () => state.listeners.delete(callback)
@@ -80,7 +82,7 @@ export const sharedState = {
     state.listeners.forEach((listener) => listener())
   },
 
-  // 2. GESTÃO ADMINISTRATIVA
+  // 2. GESTÃO ADMINISTRATIVA (Idosos e Colaboradores)
   getIdosos: () => state.idosos,
   setIdosos: (lista: PessoaSimples[]) => {
     state.idosos = lista
@@ -93,14 +95,16 @@ export const sharedState = {
     sharedState.notify()
   },
 
-  // --- ADIÇÃO PARA CORREÇÃO DO ERRO ---
+  // FUNÇÕES DE VALIDAÇÃO PARA O DASHBOARD (Sem duplicatas agora!)
+  countIdosos: () => state.idosos.length,
+  canAddIdoso: (limite: number = 999) => state.idosos.length < limite,
+  
   countColaboradores: () => state.colaboradores.length,
-  // Esta função evita o erro de "not a function" no build
   canAddFamiliar: (limite: number = 999) => state.colaboradores.length < limite,
-  // ------------------------------------
 
   // 3. LEMBRETES
   getLembretes: () => state.lembretes,
+
   addLembrete: (lembrete: Omit<Lembrete, "id">) => {
     const novo: Lembrete = {
       id: Date.now().toString(),
