@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Activity, Trash2, Users, Loader2, CreditCard, RefreshCw } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react" // Adicionado Suspense aqui
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogPortal } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Input } from "@/components/ui/input"
@@ -20,12 +20,13 @@ import { authCollaboratorService } from "@/service/collaborator.service"
 import { paymentService } from '@/service/payment.service'
 import { authService } from "@/service/auth.service"
 
-export function AdminPainel() {
+// 1. Criamos o componente de conteúdo (toda a sua lógica original fica aqui)
+function AdminPainelContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast()
 
-  // 1. DADOS REATIVOS (Sincronizados com o app todo)
+  // 1. DADOS REATIVOS
   const { idosos, colaboradores } = useAuroraSync();
 
   // 2. ESTADOS LOCAIS DE UI
@@ -43,7 +44,7 @@ export function AdminPainel() {
     name: "", email: "", password: "", cpf: "", age: "", birthData: "", emergencyContact: ""
   })
 
-  // 3. CARREGAMENTO DE DADOS (Alimenta o SharedState)
+  // 3. CARREGAMENTO DE DADOS
   const loadData = async () => {
     try {
       setIsLoadingData(true)
@@ -53,7 +54,6 @@ export function AdminPainel() {
         authService.getMe().catch(() => ({ data: null }))
       ])
       
-      // Sincroniza com o estado global para atualizar outros componentes (ex: SharedDashboard)
       sharedState.setIdosos(resElders.data || [])
       sharedState.setColaboradores(resCollabs.data || [])
       
@@ -87,7 +87,7 @@ export function AdminPainel() {
       await elderService.create({ ...formData, age: Number(formData.age), createLogin: true })
       toast({ title: "✅ Idoso Cadastrado!" })
       setShowCadastroDialog(false)
-      loadData() // Recarrega tudo para sincronizar o global
+      loadData()
     } catch (error: any) {
       toast({ title: "❌ Erro ao cadastrar", variant: "destructive" })
     } finally { setLoading(false) }
@@ -106,7 +106,6 @@ export function AdminPainel() {
 
   const handleExcluirIdoso = async (id: string) => {
     if(confirm("Deseja realmente remover este idoso?")) {
-        // Exclusão lógica/física aqui
         toast({ title: "Idoso removido" })
         loadData()
     }
@@ -301,4 +300,18 @@ export function AdminPainel() {
       </div>
     </>
   );
+}
+
+// 2. Este é o componente que você vai exportar como DEFAULT ou usar no seu dashboard.
+// Ele envolve o conteúdo real em um Suspense, matando o erro do Render.
+export function AdminPainel() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="animate-spin text-blue-500 w-10 h-10" />
+      </div>
+    }>
+      <AdminPainelContent />
+    </Suspense>
+  )
 }
