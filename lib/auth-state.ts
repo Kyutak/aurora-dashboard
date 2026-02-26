@@ -10,7 +10,7 @@ export interface SessionUser {
   email: string
   role: UserRole
   elderId?: string;
-  elderProfileId?: string; // ID do perfil (bee5)
+  elderProfileId?: string; 
   status: string
 }
 
@@ -29,9 +29,8 @@ export function setSessionUser(response: any) {
     name: user.name,
     email: user.email,
     role: user.role,
-    // CORREÇÃO AQUI: Mapeando os campos que vimos no seu console
     elderId: user.elderId, 
-    elderProfileId: user.elderProfileId, // O ID bee5 que precisamos
+    elderProfileId: user.elderProfileId, 
     status: user.status,
   }
 

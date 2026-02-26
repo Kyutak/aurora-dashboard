@@ -2,7 +2,16 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { CircleDashedIcon, Pill, Utensils, Repeat, Loader2, Users, CalendarDays } from "lucide-react"
+import { 
+  CircleDashedIcon, 
+  Pill, 
+  Utensils, 
+  Repeat, 
+  Loader2, 
+  Users, 
+  CalendarDays,
+  CheckCircle2 // Novo ícone para concluído
+} from "lucide-react"
 import { LembreteModal } from "@/features/reminder-modal"
 import { useToast } from "@/hooks/use-toast"
 import { CalendarTimeline } from "@/components/ui/calendar-timeline"
@@ -37,13 +46,10 @@ export function SharedDashboard({ userType }: { userType: string }) {
       const currentUser = getSessionUser()
       setUser(currentUser)
 
-      // SE FOR IDOSO: Usa o ID que veio no token e não carrega lista de outros
       if (currentUser?.role === "IDOSO" && currentUser.elderId) {
         setSelectedElderId(currentUser.elderId)
         carregarLembretes(currentUser.elderId)
-      } 
-      // SE FOR ADMIN/FAMILIAR: Carrega a lista de idosos sob gestão
-      else {
+      } else {
         try {
           const response = await elderService.getMyElders()
           const lista = response.data || []
@@ -66,7 +72,7 @@ export function SharedDashboard({ userType }: { userType: string }) {
       await createReminder(dados);
       toast({ title: "Lembrete agendado!" });
       setModalOpen(false);
-      carregarLembretes(selectedElderId); // Recarrega a lista no painel
+      carregarLembretes(selectedElderId);
     } catch (error) {
       toast({ title: "Erro ao criar", variant: "destructive" });
     }
@@ -74,10 +80,13 @@ export function SharedDashboard({ userType }: { userType: string }) {
 
   const handleConcluir = async (id: string) => {
     try {
-      // Otimista: remove da lista antes da chamada terminar
-      setLembretes(prev => prev.filter(l => (l.id || l._id) !== id))
+      // LÓGICA DE UX: Atualiza localmente para 'done' sem remover do array
+      setLembretes(prev => prev.map(l => 
+        (l.id || l._id) === id ? { ...l, done: true } : l
+      ))
+      
       await markReminderAsDone(id)
-      toast({ title: "Concluído!" })
+      toast({ title: "Tarefa concluída!" })
     } catch (error) {
       carregarLembretes(selectedElderId)
       toast({ title: "Erro ao concluir", variant: "destructive" })
@@ -100,7 +109,6 @@ export function SharedDashboard({ userType }: { userType: string }) {
               </div>
             </div>
             
-            {/* Seletor só aparece para quem não é o idoso logado */}
             {user?.role !== "IDOSO" && elders.length > 0 && (
               <div className="flex items-center gap-2 bg-black/20 p-2 px-4 rounded-xl backdrop-blur-md border border-white/10">
                 <Users className="w-4 h-4" />
@@ -138,23 +146,51 @@ export function SharedDashboard({ userType }: { userType: string }) {
                {loading ? (
                  <div className="flex justify-center py-10"><Loader2 className="animate-spin text-emerald-500" /></div>
                ) : lembretes.length > 0 ? (
-                 lembretes.map((l) => (
-                   <div key={l.id || l._id} className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-zinc-900 rounded-2xl border-l-4 border-emerald-500">
-                     <div className="text-emerald-500">
-                       {l.type === 'Medicamento' && <Pill className="w-6 h-6" />}
-                       {l.type === 'Refeição' && <Utensils className="w-6 h-6" />}
-                       {l.type === 'Rotina' && <Repeat className="w-6 h-6" />}
-                       {l.type === 'Evento' && <CalendarDays className="w-6 h-6" />}
-                     </div>
-                     <div className="flex-1">
-                       <p className="font-bold">{l.title}</p>
-                       <p className="text-xs text-gray-400 font-bold uppercase">{l.time} • {l.type}</p>
-                     </div>
-                     <Button variant="ghost" size="icon" onClick={() => handleConcluir(l.id || l._id)}>
-                       <CircleDashedIcon className="w-7 h-7 text-gray-300 hover:text-emerald-500 transition-colors" />
-                     </Button>
-                   </div>
-                 ))
+                 lembretes.map((l) => {
+                   // Verifica se está concluído (checa 'done' local ou 'concluido' vindo do banco)
+                   const isCompleted = l.done || l.concluido;
+
+                   return (
+                    <div 
+                      key={l.id || l._id} 
+                      className={`flex items-center gap-4 p-4 rounded-2xl border-l-4 transition-all duration-300 ${
+                        isCompleted 
+                          ? "bg-gray-100/50 dark:bg-zinc-900/40 border-gray-300 opacity-70" 
+                          : "bg-gray-50 dark:bg-zinc-900 border-emerald-500 shadow-sm"
+                      }`}
+                    >
+                      <div className={isCompleted ? "text-gray-400" : "text-emerald-500"}>
+                        {l.type === 'Medicamento' && <Pill className="w-6 h-6" />}
+                        {l.type === 'Refeição' && <Utensils className="w-6 h-6" />}
+                        {l.type === 'Rotina' && <Repeat className="w-6 h-6" />}
+                        {l.type === 'Evento' && <CalendarDays className="w-6 h-6" />}
+                      </div>
+
+                      <div className="flex-1">
+                        <p className={`font-bold transition-all ${isCompleted ? "line-through text-gray-400" : "text-gray-900 dark:text-white"}`}>
+                          {l.title}
+                        </p>
+                        <p className="text-xs text-gray-400 font-bold uppercase">{l.time} • {l.type}</p>
+                      </div>
+
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        disabled={isCompleted}
+                        onClick={() => handleConcluir(l.id || l._id)}
+                        className="rounded-full"
+                      >
+                        {isCompleted ? (
+                          <div className="bg-emerald-500 rounded-full p-1">
+                            <CheckCircle2 className="w-6 h-6 text-white" />
+                          </div>
+                        ) : (
+                          <CircleDashedIcon className="w-7 h-7 text-gray-300 hover:text-emerald-500 transition-colors" />
+                        )}
+                      </Button>
+                    </div>
+                   )
+                 })
                ) : (
                  <p className="text-center text-gray-400 py-10">Nenhum lembrete para hoje.</p>
                )}
@@ -166,7 +202,7 @@ export function SharedDashboard({ userType }: { userType: string }) {
       <LembreteModal 
         open={modalOpen} 
         onOpenChange={setModalOpen} 
-        onSave={handleSalvarLembrete} // Vincula a função de salvar
+        onSave={handleSalvarLembrete} 
         elders={elders} 
         defaultElderId={selectedElderId} 
       />

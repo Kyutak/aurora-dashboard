@@ -1,178 +1,154 @@
 "use client"
 
+import { emergencyService } from "@/service/emergency.service"
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CheckCircle } from "lucide-react"
+import { CheckCircle, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { sharedState } from "@/lib/shared-state"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
+import { useAuroraSync } from "@/hooks/use-sync"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
 export function SharedEmergencias() {
+  const { emergencias } = useAuroraSync()
+  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
-  const [emergencias, setEmergencias] = useState(sharedState.getEmergencias())
   const [dialogOpen, setDialogOpen] = useState(false)
   const [emergenciaParaResolver, setEmergenciaParaResolver] = useState<string | null>(null)
   const [observacao, setObservacao] = useState("")
 
   useEffect(() => {
-    const unsubscribe = sharedState.subscribe(() => {
-      setEmergencias(sharedState.getEmergencias())
-    })
-    return () => {
-      unsubscribe()
+    const carregarDados = async () => {
+      try {
+        const data = await emergencyService.getEmergencies(); 
+        const formatadas = data.map((e: any) => ({
+          id: e._id || e.id,
+          at: e.createdAt || e.at || e.timestamp, 
+          timestamp: new Date(e.createdAt || e.at || e.timestamp),
+          resolved: !!(e.resolved || e.resolvido), 
+          idosoId: e.elderId || e.idosoId,
+          elderName: e.elder?.name || e.elderName || "Idoso",
+          resolvedAt: e.resolvedAt ? new Date(e.resolvedAt) : null,
+          observation: e.observation || null,
+        }));
+        sharedState.setEmergencias(formatadas);
+      } catch (err) {
+        console.error("Erro ao sincronizar:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    carregarDados();
+  }, []);
+
+  const handleResolver = async () => {
+    if (!emergenciaParaResolver) return;
+    try {
+      await emergencyService.resolveEmergency(emergenciaParaResolver, observacao);
+      
+      sharedState.resolverEmergencia(emergenciaParaResolver, observacao);
+
+      toast({ title: "✅ Emergência resolvida!" });
+      
+      setDialogOpen(false);
+      setEmergenciaParaResolver(null);
+      setObservacao("");
+      
+    } catch (error: any) {
+      console.error("Erro ao resolver:", error);
+      toast({ title: "❌ Erro ao resolver", variant: "destructive" });
     }
-  }, [])
+  };
 
-  const handleAbrirDialogResolver = (id: string) => {
-    setEmergenciaParaResolver(id)
-    setObservacao("")
-    setDialogOpen(true)
-  }
+  if (loading) return <div className="p-10 text-center text-teal-600 font-bold flex justify-center gap-2"><Loader2 className="animate-spin"/> Sincronizando...</div>
 
-  const handleResolver = () => {
-    if (emergenciaParaResolver) {
-      sharedState.resolverEmergencia(emergenciaParaResolver, observacao)
-      toast({
-        title: "✅ Emergência Resolvida",
-        description: "A emergência foi marcada como resolvida.",
-      })
-      setDialogOpen(false)
-      setEmergenciaParaResolver(null)
-      setObservacao("")
-    }
-  }
-
-  const emergenciasPendentes = emergencias.filter((e) => !e.resolvido)
-  const emergenciasResolvidas = emergencias.filter((e) => e.resolvido)
-
-  // Ordenar as emergências resolvidas da mais recente para a mais antiga
-  const emergenciasResolvidasOrdenadas = emergenciasResolvidas.sort(
-    (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
-  )
+  const pendentes = emergencias.filter(e => !e.resolved);
+  const resolvidas = emergencias.filter(e => e.resolved).sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime());
 
   return (
-    <>
-      <div className="relative min-h-screen overflow-hidden bg-gray-100 dark:bg-gray-900 my-[-28px]">
-        {/* Background gradient with same dimensions */}
-        <div
-          aria-hidden
-          className="pointer-events-none
-            absolute top-0 left-0
-            w-full h-[400px] md:h-[450px]
-            bg-gradient-to-br from-blue-500 via-teal-500 to-teal-400"
-        />
-
-        {/* CONTEÚDO with same spacing */}
-        <div className="relative z-10 pt-56 md:pt-64">
-          <div className="w-full px-0 md:px-0">
-            {/* Title with same margins */}
-            <div className="flex items-center justify-between mb-25 mt-[-105px] px-[23px] mb-0">
-              <h1 className="md:text-4xl font-bold text-white drop-shadow-lg text-4xl">Emergências</h1>
+    <div className="relative min-h-screen bg-gray-100 dark:bg-gray-900">
+      <div className="relative z-10 pt-56 px-4">
+        <div className="bg-white dark:bg-gray-800 rounded-t-[32px] p-6 shadow-xl min-h-screen">
+          
+          {/* SEÇÃO ATIVAS */}
+          {pendentes.length > 0 && (
+            <div className="mb-10">
+              <h2 className="text-2xl font-bold text-red-600 mb-4">🚨 Emergências Ativas</h2>
+              {pendentes.map(e => (
+                <Card key={e.id} className="p-4 border-l-4 border-l-red-500 mb-3">
+                   <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-lg">{e.elderName}</p>
+                        <p className="text-sm text-gray-500">{e.timestamp.toLocaleString()}</p>
+                      </div>
+                      <Button variant="destructive" onClick={() => {
+                        setEmergenciaParaResolver(e.id);
+                        setDialogOpen(true);
+                      }}>Resolver</Button>
+                   </div>
+                </Card>
+              ))}
             </div>
+          )}
 
-            {/* White rounded card */}
-            <div className="bg-zinc-50 dark:bg-gray-900 rounded-t-[32px] shadow-2xl p-6 md:p-8 min-h-[calc(100vh-220px)] py-[35px] mt-[-40px] mb-0">
-              {/* Emergências Pendentes */}
-              {emergenciasPendentes.length > 0 && (
-                <div className="space-y-4 mb-[60px]">
-                  <h2 className="text-3xl md:text-4xl font-bold text-destructive">🚨 Emergências Ativas</h2>
-                  <div className="h-[3px] mt-2 mb-[37px] bg-gradient-to-r from-red-500 to-orange-500"></div>
-
-                  {emergenciasPendentes.map((emergencia) => (
-                    <Card
-                      key={emergencia.id}
-                      className="p-6 bg-red-50 dark:bg-red-950/20 border-red-300 dark:border-red-800"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-xl font-bold text-red-600 dark:text-red-400 mb-1">Emergência Acionada</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {emergencia.timestamp.toLocaleString("pt-BR")}
-                          </p>
-                        </div>
-                        <Button onClick={() => handleAbrirDialogResolver(emergencia.id)} variant="destructive">
-                          Marcar como Resolvida
-                        </Button>
-                      </div>
-                    </Card>
-                  ))}
+          {/* SEÇÃO HISTÓRICO COM OS NOVOS DADOS */}
+          <h2 className="text-2xl font-bold mb-4">Histórico</h2>
+          {resolvidas.length === 0 && pendentes.length === 0 ? (
+            <div className="text-center py-10 text-gray-400">Nenhum registro encontrado.</div>
+          ) : (
+            resolvidas.map(e => (
+              <Card key={e.id} className="p-4 mb-3 opacity-80 border-l-4 border-l-green-500">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="text-green-500 mt-1 shrink-0" />
+                    <div>
+                      <p className="font-semibold text-lg">{e.elderName} - Resolvida</p>
+                      <p className="text-xs text-gray-500">Chamado: {e.timestamp.toLocaleString()}</p>
+                      {e.resolvedAt && (
+                        <p className="text-xs text-emerald-600 font-medium mt-1">
+                          Solucionado: {e.resolvedAt.toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {e.observation && (
+                    <div className="ml-9 mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-md text-sm text-gray-700 italic border border-gray-100 dark:border-gray-700">
+                      "{e.observation}"
+                    </div>
+                  )}
                 </div>
-              )}
+              </Card>
+            ))
+          )}
+        </div>
+      </div>
 
-              {/* Histórico de Resolvidas */}
-              <div className="space-y-4">
-                <h2 className="text-3xl md:text-4xl font-bold text-foreground">Histórico</h2>
-                <div className="h-[3px] mt-2 mb-[37px] bg-gradient-to-r from-teal-500 to-emerald-500"></div>
-
-                {emergenciasResolvidasOrdenadas.length === 0 && emergenciasPendentes.length === 0 ? (
-                  <Card className="p-12 text-center bg-white dark:bg-gray-900">
-                    <CheckCircle className="w-16 h-16 mx-auto mb-4 text-emerald-600" />
-                    <h2 className="text-2xl font-bold mb-2">Nenhuma emergência registrada</h2>
-                    <p className="text-muted-foreground">Tudo está bem!</p>
-                  </Card>
-                ) : (
-                  emergenciasResolvidasOrdenadas.map((emergencia) => (
-                    <Card key={emergencia.id} className="p-6 bg-white dark:bg-gray-900">
-                      <div className="flex items-center gap-4">
-                        <CheckCircle className="w-8 h-8 text-emerald-600" />
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold">Emergência Resolvida</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {emergencia.timestamp.toLocaleString("pt-BR")}
-                          </p>
-                          {emergencia.observacao && (
-                            <p className="mt-2 text-sm p-3 bg-muted rounded-md border">
-                              <strong>Observação:</strong> {emergencia.observacao}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  ))
-                )}
-              </div>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Concluir Emergência</DialogTitle>
+            <DialogDescription>Preencha os detalhes para arquivar este chamado.</DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold">Observação / Conclusão (Opcional)</label>
+              <textarea 
+                className="w-full border rounded-md p-3 min-h-[120px] text-sm"
+                placeholder="Ex: Fui até o quarto e o idoso havia apenas deixado o relógio cair..."
+                value={observacao}
+                onChange={(e) => setObservacao(e.target.value)}
+              />
             </div>
           </div>
-        </div>
 
-        {/* Dialog para Resolver Emergência */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Resolver Emergência</DialogTitle>
-              <DialogDescription>Adicione uma observação sobre como a emergência foi resolvida.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="observacao">Observação (opcional)</Label>
-                <Textarea
-                  id="observacao"
-                  value={observacao}
-                  onChange={(e) => setObservacao(e.target.value)}
-                  placeholder="Ex: Chamei ambulância, idoso está bem agora..."
-                  rows={4}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleResolver}>Marcar como Resolvida</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleResolver} className="bg-green-600 hover:bg-green-700">Gravar e Resolver</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }

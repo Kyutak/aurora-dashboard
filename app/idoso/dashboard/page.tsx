@@ -24,6 +24,7 @@ import {
   markReminderAsDone, 
   ReminderData 
 } from "@/service/remiders.service"
+import { emergencyService } from '@/service/emergency.service'
 
 export default function IdosoDashboard() {
   const { toast } = useToast()
@@ -51,9 +52,8 @@ export default function IdosoDashboard() {
   useEffect(() => {
     const session = getSessionUser()
     setUser(session)
-    const idDoIdoso = session?.elderId || session?.elderProfileId || (session as any)?.id;
+    const idDoIdoso = session?.elderProfileId || (session as any)?.id;
 
-    // 1. Configuração da data
     const hoje = new Date()
     const dataFormatada = hoje.toLocaleDateString("pt-BR", {
       weekday: "long", year: "numeric", month: "long", day: "numeric",
@@ -61,15 +61,12 @@ export default function IdosoDashboard() {
     setDataAtual(dataFormatada.charAt(0).toUpperCase() + dataFormatada.slice(1))
 
     if (idDoIdoso) {
-      // 2. Busca inicial (com loading na tela)
       fetchLembretes(idDoIdoso)
 
-      // 3. EFEITO DE ATUALIZAÇÃO AUTOMÁTICA (Polling)
-      // Verifica novos lembretes a cada 30 segundos
       const interval = setInterval(() => {
         console.log("Sincronizando dados em segundo plano...")
-        fetchLembretes(idDoIdoso, true) // Passamos 'true' para não mostrar o spinner de carregamento
-      }, 30000); // 30000ms = 30 segundos
+        fetchLembretes(idDoIdoso, true) 
+      }, 10000); 
 
       // Limpa o intervalo se o usuário sair da tela
       return () => clearInterval(interval)
@@ -83,6 +80,18 @@ export default function IdosoDashboard() {
     sessionStorage.removeItem("authToken")
     router.push("/auth/login")
   }
+
+  const handleSOS = async () => {
+  setLoading(true);
+  try {
+    await emergencyService.triggerSOS();
+    alert("SOCORRO ENVIADO! Os cuidadores foram notificados.");
+  } catch (err) {
+    alert("ERRO: Não foi possível enviar o alerta. Ligue para 192.");
+  } finally {
+    setLoading(false);
+  }
+}
 
   const handleToggleCompleto = async (reminderId: string) => {
     const idDoIdoso = user?.elderId || (user as any)?.id || (user as any)?._id
@@ -136,7 +145,7 @@ export default function IdosoDashboard() {
           {dataAtual}
         </p>
 
-        <EmergencyButton onEmergency={() => {}} />
+        <EmergencyButton onEmergency={handleSOS} />
 
         <div className="space-y-4">
           <h2 className="text-2xl font-bold text-gray-800 ml-2">O que temos para hoje?</h2>

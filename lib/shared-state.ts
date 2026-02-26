@@ -1,28 +1,33 @@
-interface Lembrete {
+// --- INTERFACES ---
+
+export interface Lembrete {
   id: string
   titulo: string
   horario: string
   data: Date
   tipo: "medicamento" | "refeicao" | "lembrete-voz" | "rotina" | "evento"
   criadoPor: "idoso" | "familiar" | "admin"
-  diasSemana?: number[] // 0 = Sunday, 1 = Monday, etc.
+  diasSemana?: number[]
   repeticao?: string
 }
 
-interface Emergencia {
+export interface Emergencia {
+  observation?: string
+  resolvedAt: any
+  at: string | Date
   id: string
   timestamp: Date
-  resolvido: boolean
+  resolved: boolean
   idosoId: string
-  observacao?: string
+  elderName?: string
 }
 
-interface Preferencias {
+export interface Preferencias {
   botaoEmergenciaAtivo: boolean
   idosoPodeEditarRotina: boolean
 }
 
-interface Usuario {
+export interface Usuario {
   id: string
   nome: string
   tipo: "familiar" | "idoso"
@@ -30,77 +35,70 @@ interface Usuario {
   ultimaAtividade: Date
 }
 
+// Interface para Idosos e Colaboradores (Admin)
+export interface PessoaSimples {
+  id?: string
+  _id?: string
+  name?: string
+  user?: { name: string; email?: string }
+  cpf?: string
+  age?: number
+}
+
 interface SharedState {
   lembretes: Lembrete[]
   emergencias: Emergencia[]
   preferencias: Preferencias
   usuarios: Usuario[]
+  idosos: PessoaSimples[]
+  colaboradores: PessoaSimples[]
   listeners: Set<() => void>
   lembretesCompletos: Set<string>
 }
 
+// --- ESTADO INICIAL ---
+
 const state: SharedState = {
-  lembretes: [
-    {
-      id: "1",
-      titulo: "Tomar remédio da pressão",
-      horario: "08:00",
-      data: new Date(),
-      tipo: "medicamento",
-      criadoPor: "familiar",
-      repeticao: "Diária",
-    },
-    {
-      id: "2",
-      titulo: "Almoço",
-      horario: "12:00",
-      data: new Date(),
-      tipo: "refeicao",
-      criadoPor: "familiar",
-      repeticao: "Diária",
-    },
-  ],
+  lembretes: [],
   emergencias: [],
   preferencias: {
     botaoEmergenciaAtivo: true,
     idosoPodeEditarRotina: false,
   },
-  usuarios: [
-    {
-      id: "1",
-      nome: "Admin (Você)",
-      tipo: "familiar",
-      status: "ativo",
-      ultimaAtividade: new Date(),
-    },
-    {
-      id: "2",
-      nome: "João Santos",
-      tipo: "familiar",
-      status: "ativo",
-      ultimaAtividade: new Date(Date.now() - 1000 * 60 * 15),
-    },
-    {
-      id: "3",
-      nome: "Maria Silva",
-      tipo: "idoso",
-      status: "ativo",
-      ultimaAtividade: new Date(Date.now() - 1000 * 60 * 5),
-    },
-    {
-      id: "4",
-      nome: "Ana Costa",
-      tipo: "idoso",
-      status: "ativo",
-      ultimaAtividade: new Date(Date.now() - 1000 * 60 * 30),
-    },
-  ],
+  usuarios: [],
+  idosos: [],
+  colaboradores: [],
   listeners: new Set(),
   lembretesCompletos: new Set(),
 }
 
+// --- OBJETO COMPARTILHADO EXPORTADO ---
+
 export const sharedState = {
-  // Lembretes
+  // 1. INFRAESTRUTURA E REATIVIDADE
+  subscribe: (callback: () => void) => {
+    state.listeners.add(callback)
+    return () => state.listeners.delete(callback)
+  },
+
+  notify: () => {
+    state.listeners.forEach((listener) => listener())
+  },
+
+  // 2. GESTÃO ADMINISTRATIVA (Idosos e Colaboradores)
+  getIdosos: () => state.idosos,
+  setIdosos: (lista: PessoaSimples[]) => {
+    state.idosos = lista
+    sharedState.notify()
+  },
+
+  getColaboradores: () => state.colaboradores,
+  setColaboradores: (lista: PessoaSimples[]) => {
+    state.colaboradores = lista
+    sharedState.notify()
+  },
+
+  // 3. LEMBRETES
   getLembretes: () => state.lembretes,
 
   addLembrete: (lembrete: Omit<Lembrete, "id">) => {
@@ -128,9 +126,8 @@ export const sharedState = {
     sharedState.notify()
   },
 
-  // Methods for tracking completed reminders
   getLembretesCompletos: () => state.lembretesCompletos,
-
+  isLembreteCompleto: (id: string) => state.lembretesCompletos.has(id),
   toggleLembreteCompleto: (id: string) => {
     if (state.lembretesCompletos.has(id)) {
       state.lembretesCompletos.delete(id)
@@ -140,75 +137,48 @@ export const sharedState = {
     sharedState.notify()
   },
 
-  isLembreteCompleto: (id: string) => state.lembretesCompletos.has(id),
+  countLembretesVoz: () => state.lembretes.filter((l) => l.tipo === "lembrete-voz").length,
+  canAddLembreteVoz: () => sharedState.countLembretesVoz() < 2,
 
-  // Emergências
+  // 4. EMERGÊNCIAS (Sincronizadas com Backend/Socket)
   getEmergencias: () => state.emergencias,
+  setEmergencias: (lista: Emergencia[]) => {
+    state.emergencias = lista
+    sharedState.notify()
+  },
 
-  addEmergencia: (idosoId: string) => {
+  addEmergencia: (data: { id?: string; idosoId: string; elderName?: string; at?: any }) => {
     const nova: Emergencia = {
-      id: Date.now().toString(),
+      id: data.id || Date.now().toString(),
+      at: data.at || new Date().toISOString(), 
       timestamp: new Date(),
-      resolvido: false,
-      idosoId,
+      resolved: false, 
+      idosoId: data.idosoId,
+      elderName: data.elderName || "Idoso",
+      observation: undefined,
+      resolvedAt: undefined
     }
-    state.emergencias.push(nova)
+    state.emergencias.unshift(nova)
     sharedState.notify()
     return nova
   },
 
-  resolverEmergencia: (id: string, observacao?: string) => {
+    resolverEmergencia: (id: string, observacaoTexto?: string) => {
     const index = state.emergencias.findIndex((e) => e.id === id)
     if (index !== -1) {
-      state.emergencias[index].resolvido = true
-      if (observacao) {
-        state.emergencias[index].observacao = observacao
-      }
+      state.emergencias[index].resolved = true
+      state.emergencias[index].resolvedAt = new Date()
+      state.emergencias[index].observation = observacaoTexto 
       sharedState.notify()
     }
   },
 
-  // Preferences
+  // 5. PREFERÊNCIAS E USUÁRIOS
   getPreferencias: () => state.preferencias,
-
   updatePreferencias: (updates: Partial<Preferencias>) => {
     state.preferencias = { ...state.preferencias, ...updates }
     sharedState.notify()
   },
 
-  // User Management
   getUsuarios: () => state.usuarios,
-
-  deleteUsuario: (id: string) => {
-    // Don't allow deleting the admin (first familiar user)
-    if (id === "1") return
-    state.usuarios = state.usuarios.filter((u) => u.id !== id)
-    sharedState.notify()
-  },
-
-  canAddFamiliar: () => {
-    return state.usuarios.filter((u) => u.tipo === "familiar").length < 2
-  },
-
-  canAddIdoso: () => {
-    return state.usuarios.filter((u) => u.tipo === "idoso").length < 1
-  },
-
-  // Subscribe/notify pattern
-  subscribe: (callback: () => void) => {
-    state.listeners.add(callback)
-    return () => state.listeners.delete(callback)
-  },
-
-  notify: () => {
-    state.listeners.forEach((listener) => listener())
-  },
-
-  countLembretesVoz: () => {
-    return state.lembretes.filter((l) => l.tipo === "lembrete-voz").length
-  },
-
-  canAddLembreteVoz: () => {
-    return sharedState.countLembretesVoz() < 2
-  },
 }
