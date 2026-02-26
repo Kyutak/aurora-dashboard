@@ -1,5 +1,4 @@
 // --- INTERFACES ---
-
 export interface Lembrete {
   id: string
   titulo: string
@@ -35,7 +34,6 @@ export interface Usuario {
   ultimaAtividade: Date
 }
 
-// Interface para Idosos e Colaboradores (Admin)
 export interface PessoaSimples {
   id?: string
   _id?: string
@@ -57,7 +55,6 @@ interface SharedState {
 }
 
 // --- ESTADO INICIAL ---
-
 const state: SharedState = {
   lembretes: [],
   emergencias: [],
@@ -73,9 +70,7 @@ const state: SharedState = {
 }
 
 // --- OBJETO COMPARTILHADO EXPORTADO ---
-
 export const sharedState = {
-  // 1. INFRAESTRUTURA E REATIVIDADE
   subscribe: (callback: () => void) => {
     state.listeners.add(callback)
     return () => state.listeners.delete(callback)
@@ -85,7 +80,7 @@ export const sharedState = {
     state.listeners.forEach((listener) => listener())
   },
 
-  // 2. GESTÃO ADMINISTRATIVA (Idosos e Colaboradores)
+  // 2. GESTÃO ADMINISTRATIVA
   getIdosos: () => state.idosos,
   setIdosos: (lista: PessoaSimples[]) => {
     state.idosos = lista
@@ -98,9 +93,14 @@ export const sharedState = {
     sharedState.notify()
   },
 
+  // --- ADIÇÃO PARA CORREÇÃO DO ERRO ---
+  countColaboradores: () => state.colaboradores.length,
+  // Esta função evita o erro de "not a function" no build
+  canAddFamiliar: (limite: number = 999) => state.colaboradores.length < limite,
+  // ------------------------------------
+
   // 3. LEMBRETES
   getLembretes: () => state.lembretes,
-
   addLembrete: (lembrete: Omit<Lembrete, "id">) => {
     const novo: Lembrete = {
       id: Date.now().toString(),
@@ -140,7 +140,7 @@ export const sharedState = {
   countLembretesVoz: () => state.lembretes.filter((l) => l.tipo === "lembrete-voz").length,
   canAddLembreteVoz: () => sharedState.countLembretesVoz() < 2,
 
-  // 4. EMERGÊNCIAS (Sincronizadas com Backend/Socket)
+  // 4. EMERGÊNCIAS
   getEmergencias: () => state.emergencias,
   setEmergencias: (lista: Emergencia[]) => {
     state.emergencias = lista
@@ -163,7 +163,7 @@ export const sharedState = {
     return nova
   },
 
-    resolverEmergencia: (id: string, observacaoTexto?: string) => {
+  resolverEmergencia: (id: string, observacaoTexto?: string) => {
     const index = state.emergencias.findIndex((e) => e.id === id)
     if (index !== -1) {
       state.emergencias[index].resolved = true
