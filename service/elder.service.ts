@@ -7,5 +7,9 @@ export const elderService = {
 
   getMyElders() {
     return api.get('/elders/my-elders');
+  },
+
+  updateMedicalRecord(id:string, data:any){
+    return api.patch(`/elders/${id}`,data)
   }
 };

@@ -43,6 +43,15 @@ export interface PessoaSimples {
   age?: number
 }
 
+export interface Atividade {
+  id: string
+  usuario: string
+  acao: string
+  timestamp: Date
+  tipo: "idoso" | "familiar" | "admin"
+  vinculoId: string 
+}
+
 interface SharedState {
   lembretes: Lembrete[]
   emergencias: Emergencia[]
@@ -52,6 +61,7 @@ interface SharedState {
   colaboradores: PessoaSimples[]
   listeners: Set<() => void>
   lembretesCompletos: Set<string>
+  atividades: Atividade[]
 }
 
 // --- ESTADO INICIAL ---
@@ -67,7 +77,9 @@ const state: SharedState = {
   colaboradores: [],
   listeners: new Set(),
   lembretesCompletos: new Set(),
+  atividades: []
 }
+
 
 // --- OBJETO COMPARTILHADO EXPORTADO (VERSÃO CORRIGIDA) ---
 
@@ -185,4 +197,11 @@ export const sharedState = {
   },
 
   getUsuarios: () => state.usuarios,
+
+  getAtividades: () => state.atividades,
+  
+  addAtividade: (atv: Atividade) => {
+    state.atividades = [atv, ...state.atividades].slice(0, 50)
+    sharedState.notify()
+  },
 }

@@ -11,6 +11,7 @@ export function useAuroraSync() {
     })
     return () => {unsubscribe()}
   }, [])
+  
 
   return {
     emergencias: sharedState.getEmergencias(),
@@ -18,5 +19,6 @@ export function useAuroraSync() {
     preferencias: sharedState.getPreferencias(),
     idosos: sharedState.getIdosos(),        
     colaboradores: sharedState.getColaboradores(), 
+    atividades: sharedState.getAtividades(),
   }
 }
