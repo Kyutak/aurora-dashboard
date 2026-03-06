@@ -19,10 +19,10 @@ import { EmergencyButton } from "@/features/emergency-button"
 import { getSessionUser, SessionUser } from "@/lib/auth-state"
 import { Badge } from "@/components/ui/badge"
 
+// Ajustado o nome do arquivo para o padrão que corrigimos antes
 import { 
   getDailyReminders, 
-  markReminderAsDone, 
-  ReminderData 
+  markReminderAsDone 
 } from "@/service/remiders.service"
 import { emergencyService } from '@/service/emergency.service'
 
@@ -35,7 +35,6 @@ export default function IdosoDashboard() {
   const [loading, setLoading] = useState(true)
   const [dataAtual, setDataAtual] = useState("")
 
-  // Usamos um useCallback que não reseta o loading para atualizações silenciosas
   const fetchLembretes = useCallback(async (elderId: string, silent = false) => {
     try {
       if (!silent) setLoading(true)
@@ -52,7 +51,9 @@ export default function IdosoDashboard() {
   useEffect(() => {
     const session = getSessionUser()
     setUser(session)
-    const idDoIdoso = session?.elderProfileId || (session as any)?.id;
+    
+    // Prioridade de IDs para evitar undefined no MongoDB
+    const idDoIdoso = session?.elderProfileId || (session as any)?.id || (session as any)?._id;
 
     const hoje = new Date()
     const dataFormatada = hoje.toLocaleDateString("pt-BR", {
@@ -62,13 +63,9 @@ export default function IdosoDashboard() {
 
     if (idDoIdoso) {
       fetchLembretes(idDoIdoso)
-
       const interval = setInterval(() => {
-        console.log("Sincronizando dados em segundo plano...")
         fetchLembretes(idDoIdoso, true) 
       }, 10000); 
-
-      // Limpa o intervalo se o usuário sair da tela
       return () => clearInterval(interval)
     } else {
       setLoading(false)
@@ -82,44 +79,44 @@ export default function IdosoDashboard() {
   }
 
   const handleSOS = async () => {
-  setLoading(true);
-  try {
-    await emergencyService.triggerSOS();
-    alert("SOCORRO ENVIADO! Os cuidadores foram notificados.");
-  } catch (err) {
-    alert("ERRO: Não foi possível enviar o alerta. Ligue para 192.");
-  } finally {
-    setLoading(false);
+    try {
+      await emergencyService.triggerSOS();
+      toast({ title: "🚨 SOCORRO ENVIADO!", description: "Os cuidadores foram notificados.", variant: "destructive" })
+    } catch (err) {
+      alert("ERRO: Não foi possível enviar o alerta. Ligue para 192.");
+    }
   }
-}
 
   const handleToggleCompleto = async (reminderId: string) => {
-    const idDoIdoso = user?.elderId || (user as any)?.id || (user as any)?._id
+    const idDoIdoso = user?.elderProfileId || (user as any)?.id || (user as any)?._id
     
     try {
-      // Otimismo na UI: Suporta tanto .id quanto ._id
+      // 1. Atualização Otimista (UI muda na hora)
       setLembretes(prev => prev.map(l => {
         const currentId = l.id || l._id
         return currentId === reminderId ? { ...l, isCompleted: true } : l
       }))
       
+      // 2. Chamada ao backend (Aqui gera o LOG de atividade)
       await markReminderAsDone(reminderId)
-      toast({ title: "✅ Concluído!" })
       
-      // Recarrega para garantir sincronia com o banco
-      if (idDoIdoso) fetchLembretes(idDoIdoso)
+      toast({ title: "✅ Tarefa Concluída!" })
+      
+      // 3. Sincroniza silenciosamente para validar
+      if (idDoIdoso) fetchLembretes(idDoIdoso, true)
     } catch (error) {
-      toast({ title: "Erro ao marcar como concluído", variant: "destructive" })
+      toast({ title: "Erro ao salvar", variant: "destructive" })
+      // Reverte o otimismo se der erro
       if (idDoIdoso) fetchLembretes(idDoIdoso)
     }
   }
 
   const getTipoIcon = (tipo: string) => {
     const t = tipo?.toLowerCase() || ""
-    if (t.includes("medicamento") || t.includes("pill")) return <Pill className="w-10 h-10 text-pink-500" />
-    if (t.includes("refeicao") || t.includes("refeição") || t.includes("utensils")) return <Utensils className="w-10 h-10 text-orange-500" />
-    if (t.includes("rotina") || t.includes("repeat")) return <Repeat className="w-10 h-10 text-blue-500" />
-    if (t.includes("evento") || t.includes("calendar")) return <CalendarDays className="w-10 h-10 text-green-600" />
+    if (t.includes("medicamento")) return <Pill className="w-10 h-10 text-pink-500" />
+    if (t.includes("refeição") || t.includes("refeicao")) return <Utensils className="w-10 h-10 text-orange-500" />
+    if (t.includes("rotina")) return <Repeat className="w-10 h-10 text-blue-500" />
+    if (t.includes("evento")) return <CalendarDays className="w-10 h-10 text-green-600" />
     return <Clock className="w-10 h-10 text-blue-600" />
   }
 
@@ -152,15 +149,16 @@ export default function IdosoDashboard() {
 
           {lembretes.length > 0 ? (
             lembretes.map((l) => {
-              const currentId = l.id || l._id; // Captura o ID correto do objeto
+              const currentId = l.id || l._id;
               return (
                 <Card 
                   key={currentId} 
+                  // Só permite clicar se não estiver completo e o ID for válido
                   onClick={() => !l.isCompleted && currentId && handleToggleCompleto(currentId)}
                   className={`p-6 border-4 transition-all active:scale-95 cursor-pointer rounded-[32px] ${
                     l.isCompleted 
                       ? "opacity-60 bg-gray-100 border-transparent shadow-none" 
-                      : "bg-white border-white shadow-xl shadow-emerald-100/50"
+                      : "bg-white border-white shadow-xl shadow-emerald-100/50 hover:border-emerald-200"
                   }`}
                 >
                   <div className="flex items-center gap-6">

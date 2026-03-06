@@ -65,6 +65,7 @@ interface SharedState {
 }
 
 // --- ESTADO INICIAL ---
+// Removido o 'getAtividades' daqui, pois o state só guarda os DADOS.
 const state: SharedState = {
   lembretes: [],
   emergencias: [],
@@ -77,12 +78,10 @@ const state: SharedState = {
   colaboradores: [],
   listeners: new Set(),
   lembretesCompletos: new Set(),
-  atividades: []
+  atividades: [],
 }
 
-
-// --- OBJETO COMPARTILHADO EXPORTADO (VERSÃO CORRIGIDA) ---
-
+// --- OBJETO COMPARTILHADO EXPORTADO ---
 export const sharedState = {
   // 1. INFRAESTRUTURA E REATIVIDADE
   subscribe: (callback: () => void) => {
@@ -94,7 +93,7 @@ export const sharedState = {
     state.listeners.forEach((listener) => listener())
   },
 
-  // 2. GESTÃO ADMINISTRATIVA (Idosos e Colaboradores)
+  // 2. GESTÃO ADMINISTRATIVA
   getIdosos: () => state.idosos,
   setIdosos: (lista: PessoaSimples[]) => {
     state.idosos = lista
@@ -107,7 +106,6 @@ export const sharedState = {
     sharedState.notify()
   },
 
-  // FUNÇÕES DE VALIDAÇÃO PARA O DASHBOARD (Sem duplicatas agora!)
   countIdosos: () => state.idosos.length,
   canAddIdoso: (limite: number = 999) => state.idosos.length < limite,
   
@@ -198,9 +196,16 @@ export const sharedState = {
 
   getUsuarios: () => state.usuarios,
 
+  // 6. ATIVIDADES (Versão única e corrigida)
   getAtividades: () => state.atividades,
   
+  setAtividades: (lista: Atividade[]) => {
+    state.atividades = lista
+    sharedState.notify()
+  },
+
   addAtividade: (atv: Atividade) => {
+    // Mantém apenas as últimas 50 atividades
     state.atividades = [atv, ...state.atividades].slice(0, 50)
     sharedState.notify()
   },
