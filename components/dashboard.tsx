@@ -11,7 +11,7 @@ import {
   Users, 
   CalendarDays,
   CheckCircle2,
-  FileHeart, // Ícone da Ficha
+  FileHeart, 
   ShieldCheck,
   User,
   Cake
@@ -67,9 +67,13 @@ export function SharedDashboard({ userType }: { userType: string }) {
       const currentUser = getSessionUser()
       setUser(currentUser)
 
-      if (currentUser?.role === "IDOSO" && currentUser.elderId) {
-        setSelectedElderId(currentUser.elderId)
-        carregarLembretes(currentUser.elderId)
+      // CORREÇÃO 1: Identificação robusta do ID
+      const idDoIdoso = currentUser?.elderProfileId || currentUser?.elderId || (currentUser as any)?.id || (currentUser as any)?._id;
+      const isIdoso = currentUser?.role === "IDOSO";
+
+      if (isIdoso && idDoIdoso) {
+        setSelectedElderId(idDoIdoso)
+        carregarLembretes(idDoIdoso)
       } else {
         try {
           const response = await elderService.getMyElders()
@@ -119,7 +123,6 @@ export function SharedDashboard({ userType }: { userType: string }) {
       await elderService.updateMedicalRecord(selectedElderId, payload);
       toast({ title: "✅ Ficha médica atualizada!" });
       setShowFichaDialog(false);
-      // Opcional: recarregar lista de idosos para manter estado local novo
       const res = await elderService.getMyElders();
       setElders(res.data || []);
     } catch (error) {
@@ -142,8 +145,9 @@ export function SharedDashboard({ userType }: { userType: string }) {
 
   const handleConcluir = async (id: string) => {
     try {
+      // CORREÇÃO 3: Otimismo robusto na UI
       setLembretes(prev => prev.map(l => 
-        (l.id || l._id) === id ? { ...l, done: true } : l
+        (l.id || l._id) === id ? { ...l, done: true, isCompleted: true, concluido: true } : l
       ))
       await markReminderAsDone(id)
       toast({ title: "Tarefa concluída!" })
@@ -172,8 +176,8 @@ export function SharedDashboard({ userType }: { userType: string }) {
             </div>
             
             <div className="flex items-center gap-3">
-               {/* BOTÃO DA FICHA MÉDICA INJETADO AQUI */}
-               {selectedElderId && (
+               {/* CORREÇÃO 2: Botão da ficha APENAS para gestores/cuidadores */}
+               {user?.role !== "IDOSO" && selectedElderId && (
                  <Button 
                    onClick={handleOpenFicha}
                    className="bg-white/20 hover:bg-white/40 backdrop-blur-md border border-white/30 rounded-xl p-2 px-3 flex gap-2 items-center text-white"
@@ -222,7 +226,8 @@ export function SharedDashboard({ userType }: { userType: string }) {
                   <div className="flex justify-center py-10"><Loader2 className="animate-spin text-emerald-500" /></div>
                 ) : lembretes.length > 0 ? (
                   lembretes.map((l) => {
-                    const isCompleted = l.done || l.concluido;
+                    // Check abrangente de conclusão
+                    const isCompleted = l.done || l.concluido || l.isCompleted;
                     return (
                       <div 
                         key={l.id || l._id} 
@@ -280,7 +285,7 @@ export function SharedDashboard({ userType }: { userType: string }) {
         defaultElderId={selectedElderId} 
       />
 
-      {/* --- MODAL DA FICHA MÉDICA INJETADO --- */}
+      {/* --- MODAL DA FICHA MÉDICA --- */}
       <Dialog open={showFichaDialog} onOpenChange={setShowFichaDialog}>
         <DialogPortal>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto z-[9999] border-none shadow-2xl">
