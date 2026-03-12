@@ -3,36 +3,63 @@
 import { useState, useEffect, useCallback } from "react"
 import { AdminSidebar } from "@/components/layout/admin-sidebar"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Activity, Loader2, RefreshCw, FileText } from "lucide-react"
+import { Clock, Activity, Loader2, RefreshCw, FileText, HeartPulse, ShieldCheck, Users } from "lucide-react"
 import { useAuroraSync } from "@/hooks/use-sync" 
 import { sharedState, Atividade } from "@/lib/shared-state"
+
+// Imports dos seus services já existentes
 import { elderService } from "@/service/elder.service" 
+import { authService } from "@/service/auth.service"
+import { authCollaboratorService } from "@/service/collaborator.service"
+
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 
 export default function AtividadeRecentePage() {
   const { atividades } = useAuroraSync(); 
   const [loading, setLoading] = useState(true);
+  
+  // NOVO ESTADO: Armazena a rede de apoio
+  const [equipe, setEquipe] = useState({
+    admin: null as any,
+    idosos: [] as any[],
+    colaboradores: [] as any[]
+  });
 
-  const carregarHistorico = useCallback(async () => {
+  const carregarDados = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await elderService.getLogs(); 
-      if (Array.isArray(data)) {
-        sharedState.setAtividades(data);
+      
+      // Busca tudo em paralelo para ser rápido
+      const [logsRes, meRes, eldersRes, collabsRes] = await Promise.all([
+        elderService.getLogs().catch(() => []),
+        authService.getMe().catch(() => ({ data: null })),
+        elderService.getMyElders().catch(() => ({ data: [] })),
+        authCollaboratorService.getMyCollaborators().catch(() => ({ data: [] }))
+      ]);
+      
+      if (Array.isArray(logsRes)) {
+        sharedState.setAtividades(logsRes);
       }
+
+      setEquipe({
+        admin: meRes.data,
+        idosos: eldersRes.data || [],
+        colaboradores: collabsRes.data || []
+      });
+
     } catch (error) {
-      console.error("Erro ao carregar histórico:", error);
+      console.error("Erro ao carregar dados:", error);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    carregarHistorico();
-  }, [carregarHistorico]);
+    carregarDados();
+  }, [carregarDados]);
 
-  // FUNÇÃO QUE GERA O PDF NO FRONT-END
+  // FUNÇÃO QUE GERA O PDF ATUALIZADA COM OS NOMES DA EQUIPE
   const gerarRelatorioPDF = () => {
     if (!atividades || atividades.length === 0) {
       alert("Não há atividades para gerar o relatório.");
@@ -49,9 +76,27 @@ export default function AtividadeRecentePage() {
     
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Data de emissão: ${dataEmissao}`, 14, 30);
+    doc.text(`Data de emissão: ${dataEmissao}`, 14, 28);
 
-    // Agrupar atividades por data e calcular totais
+    // --- NOVA SESSÃO NO PDF: REDE DE APOIO ---
+    doc.setFillColor(240, 249, 248); // Fundo verdinho claro
+    doc.rect(14, 34, 182, 30, 'F');
+    
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("EQUIPE DE MONITORAMENTO", 18, 42);
+    
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Responsável Familiar: ${equipe.admin?.name || 'Não informado'}`, 18, 48);
+    
+    const nomesIdosos = equipe.idosos.map(i => i.name).join(', ') || 'Nenhum cadastrado';
+    doc.text(`Pacientes (Idosos): ${nomesIdosos}`, 18, 53);
+    
+    const nomesColaboradores = equipe.colaboradores.map(c => c.user?.name || 'Colaborador').join(', ') || 'Nenhum cadastrado';
+    doc.text(`Cuidadores/Colaboradores: ${nomesColaboradores}`, 18, 58);
+    // ----------------------------------------
+
     const atividadesPorData: Record<string, any[]> = {};
     const resumoTipos: Record<string, number> = {};
 
@@ -61,22 +106,14 @@ export default function AtividadeRecentePage() {
       const horaStr = new Date(atv.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       
       if (!atividadesPorData[dataStr]) atividadesPorData[dataStr] = [];
-      
       const tipoFormatado = atv.tipo === 'admin' ? 'Gestão' : atv.tipo;
       
-      atividadesPorData[dataStr].push([
-        horaStr,
-        tipoFormatado,
-        atv.acao
-      ]);
-
-      // Contagem para o Resumo
+      atividadesPorData[dataStr].push([horaStr, tipoFormatado, atv.acao]);
       resumoTipos[tipoFormatado] = (resumoTipos[tipoFormatado] || 0) + 1;
     });
 
-    let startY = 40;
+    let startY = 75; // Começa mais para baixo por causa do quadro da equipe
 
-    // Gerar uma tabela para cada data
     Object.keys(atividadesPorData).forEach(data => {
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
@@ -87,7 +124,7 @@ export default function AtividadeRecentePage() {
         head: [['Horário', 'Tipo', 'Descrição']],
         body: atividadesPorData[data],
         theme: 'striped',
-        headStyles: { fillColor: [13, 148, 136] }, // Cor teal-600 para combinar com seu layout
+        headStyles: { fillColor: [13, 148, 136] }, 
         styles: { fontSize: 9 },
         margin: { left: 14, right: 14 }
       });
@@ -95,8 +132,6 @@ export default function AtividadeRecentePage() {
       startY = (doc as any).lastAutoTable.finalY + 15;
     });
 
-    // Adicionar Resumo do Período
-    // Checa se precisa de uma nova página para não cortar o resumo
     if (startY > 250) {
       doc.addPage();
       startY = 20;
@@ -114,25 +149,15 @@ export default function AtividadeRecentePage() {
       resumoY += 7;
     });
 
-    // Rodapé
     const totalPages = doc.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
       doc.setFontSize(8);
       doc.setTextColor(150);
-      doc.text(
-        "Este documento foi gerado eletronicamente e é válido sem assinatura.",
-        14,
-        doc.internal.pageSize.getHeight() - 15
-      );
-      doc.text(
-        `Página ${i} de ${totalPages}`,
-        doc.internal.pageSize.getWidth() - 30,
-        doc.internal.pageSize.getHeight() - 15
-      );
+      doc.text("Este documento foi gerado eletronicamente e é válido sem assinatura.", 14, doc.internal.pageSize.getHeight() - 15);
+      doc.text(`Página ${i} de ${totalPages}`, doc.internal.pageSize.getWidth() - 30, doc.internal.pageSize.getHeight() - 15);
     }
 
-    // Salvar o arquivo
     doc.save(`Relatorio_Atividades_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
   };
 
@@ -142,17 +167,16 @@ export default function AtividadeRecentePage() {
       <main className="flex-1 overflow-x-hidden pb-24 md:pb-8">
         <div className="relative min-h-screen bg-gray-50 dark:bg-gray-900">
           
-          <div className="absolute top-0 left-0 w-full h-[320px] bg-gradient-to-br from-teal-600 via-emerald-500 to-cyan-400 z-0" />
+          <div className="absolute top-0 left-0 w-full h-[380px] bg-gradient-to-br from-teal-600 via-emerald-500 to-cyan-400 z-0" />
           
           <div className="relative z-10 pt-16 px-6 max-w-5xl mx-auto">
-             <div className="flex justify-between items-end mb-8">
+             <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
                 <div>
                   <h1 className="text-4xl font-extrabold text-white tracking-tight">Atividades</h1>
                   <p className="text-teal-50 opacity-90 font-medium">Monitoramento em tempo real</p>
                 </div>
                 
-                <div className="flex gap-3">
-                  {/* NOVO BOTÃO DE GERAR PDF */}
+                <div className="flex flex-wrap gap-3">
                   <Button 
                     variant="ghost" 
                     onClick={gerarRelatorioPDF}
@@ -165,7 +189,7 @@ export default function AtividadeRecentePage() {
 
                   <Button 
                     variant="ghost" 
-                    onClick={carregarHistorico}
+                    onClick={carregarDados}
                     disabled={loading}
                     className="text-white hover:bg-white/20 gap-2 border border-white/30 backdrop-blur-sm"
                   >
@@ -175,7 +199,38 @@ export default function AtividadeRecentePage() {
                 </div>
              </div>
 
-            <div className="bg-white dark:bg-zinc-900 rounded-[32px] shadow-2xl p-6 md:p-8 min-h-[calc(100vh-250px)] border border-white/20">
+             {/* NOVOS CARDS DE EQUIPE */}
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-white">
+                  <div className="flex items-center gap-2 mb-2 opacity-80">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Gestor Familiar</span>
+                  </div>
+                  <p className="font-bold text-lg">{equipe.admin?.name || <Loader2 className="w-4 h-4 animate-spin" />}</p>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-white">
+                  <div className="flex items-center gap-2 mb-2 opacity-80">
+                    <HeartPulse className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Pacientes (Idosos)</span>
+                  </div>
+                  <p className="font-bold text-lg leading-tight">
+                    {equipe.idosos.length > 0 ? equipe.idosos.map(i => i.name).join(', ') : "Nenhum cadastrado"}
+                  </p>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-white">
+                  <div className="flex items-center gap-2 mb-2 opacity-80">
+                    <Users className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Rede de Cuidadores</span>
+                  </div>
+                  <p className="font-bold text-lg leading-tight">
+                    {equipe.colaboradores.length > 0 ? equipe.colaboradores.map(c => c.user?.name || "Colaborador").join(', ') : "Sem cuidadores"}
+                  </p>
+                </div>
+             </div>
+
+            <div className="bg-white dark:bg-zinc-900 rounded-[32px] shadow-2xl p-6 md:p-8 min-h-[calc(100vh-400px)] border border-white/20">
               <h2 className="text-2xl font-bold flex items-center gap-3 text-gray-800 dark:text-white">
                 <Activity className="text-teal-500 w-6 h-6" /> Histórico de Eventos
               </h2>
