@@ -7,7 +7,6 @@ import { Clock, Activity, Loader2, RefreshCw, FileText, HeartPulse, ShieldCheck,
 import { useAuroraSync } from "@/hooks/use-sync" 
 import { sharedState, Atividade } from "@/lib/shared-state"
 
-// Imports dos seus services já existentes
 import { elderService } from "@/service/elder.service" 
 import { authService } from "@/service/auth.service"
 import { authCollaboratorService } from "@/service/collaborator.service"
@@ -15,11 +14,19 @@ import { authCollaboratorService } from "@/service/collaborator.service"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 
+// Função auxiliar apenas para a interface visual do site
+const formatarPerfil = (tipo: string) => {
+  if (tipo === 'admin') return 'Gestor';
+  if (tipo === 'idoso') return 'Paciente';
+  if (tipo === 'colaborador') return 'Cuidador';
+  if (tipo === 'atividade') return 'Sistema';
+  return tipo || 'Sistema';
+};
+
 export default function AtividadeRecentePage() {
   const { atividades } = useAuroraSync(); 
   const [loading, setLoading] = useState(true);
   
-  // NOVO ESTADO: Armazena a rede de apoio
   const [equipe, setEquipe] = useState({
     admin: null as any,
     idosos: [] as any[],
@@ -30,7 +37,6 @@ export default function AtividadeRecentePage() {
     try {
       setLoading(true);
       
-      // Busca tudo em paralelo para ser rápido
       const [logsRes, meRes, eldersRes, collabsRes] = await Promise.all([
         elderService.getLogs().catch(() => []),
         authService.getMe().catch(() => ({ data: null })),
@@ -59,10 +65,13 @@ export default function AtividadeRecentePage() {
     carregarDados();
   }, [carregarDados]);
 
-  // FUNÇÃO QUE GERA O PDF ATUALIZADA COM OS NOMES DA EQUIPE
+  // FUNÇÃO DO PDF REFINADA (Focada 100% no Paciente/Clínica)
   const gerarRelatorioPDF = () => {
-    if (!atividades || atividades.length === 0) {
-      alert("Não há atividades para gerar o relatório.");
+    // FILTRO DE OURO: Pega APENAS as atividades feitas pelo perfil 'idoso'
+    const logsPacientes = atividades.filter(atv => atv.tipo === 'idoso');
+
+    if (!logsPacientes || logsPacientes.length === 0) {
+      alert("Não há tarefas concluídas pelos pacientes para gerar o relatório.");
       return;
     }
 
@@ -72,60 +81,75 @@ export default function AtividadeRecentePage() {
     // Título e Cabeçalho
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO SEMANAL DE ATIVIDADES", 14, 20);
+    doc.text("RELATÓRIO DE ACOMPANHAMENTO E ADESÃO", 14, 20);
     
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Data de emissão: ${dataEmissao}`, 14, 28);
 
-    // --- NOVA SESSÃO NO PDF: REDE DE APOIO ---
-    doc.setFillColor(240, 249, 248); // Fundo verdinho claro
+    // --- SESSÃO: REDE DE APOIO ---
+    doc.setFillColor(240, 249, 248); 
     doc.rect(14, 34, 182, 30, 'F');
     
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("EQUIPE DE MONITORAMENTO", 18, 42);
+    doc.text("DADOS DO MONITORAMENTO", 18, 42);
     
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.text(`Responsável Familiar: ${equipe.admin?.name || 'Não informado'}`, 18, 48);
     
     const nomesIdosos = equipe.idosos.map(i => i.name).join(', ') || 'Nenhum cadastrado';
-    doc.text(`Pacientes (Idosos): ${nomesIdosos}`, 18, 53);
+    doc.text(`Pacientes Monitorados: ${nomesIdosos}`, 18, 53);
     
     const nomesColaboradores = equipe.colaboradores.map(c => c.user?.name || 'Colaborador').join(', ') || 'Nenhum cadastrado';
-    doc.text(`Cuidadores/Colaboradores: ${nomesColaboradores}`, 18, 58);
-    // ----------------------------------------
+    doc.text(`Cuidadores Cadastrados: ${nomesColaboradores}`, 18, 58);
 
     const atividadesPorData: Record<string, any[]> = {};
-    const resumoTipos: Record<string, number> = {};
+    let totalConcluidas = 0;
 
-    atividades.forEach(atv => {
+    logsPacientes.forEach(atv => {
       if (!atv.timestamp) return;
       const dataStr = new Date(atv.timestamp).toLocaleDateString('pt-BR');
       const horaStr = new Date(atv.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       
       if (!atividadesPorData[dataStr]) atividadesPorData[dataStr] = [];
-      const tipoFormatado = atv.tipo === 'admin' ? 'Gestão' : atv.tipo;
       
-      atividadesPorData[dataStr].push([horaStr, tipoFormatado, atv.acao]);
-      resumoTipos[tipoFormatado] = (resumoTipos[tipoFormatado] || 0) + 1;
+      // Limpeza do texto: Tira o "Concluiu o lembrete:" e as aspas para ficar parecendo um prontuário
+      let descricaoLimpa = atv.acao.replace(/Concluiu o lembrete:/i, '').replace(/["']/g, '').trim();
+      
+      // Adiciona na linha do PDF
+      atividadesPorData[dataStr].push([
+        horaStr, 
+        atv.usuario || 'Paciente', 
+        descricaoLimpa.charAt(0).toUpperCase() + descricaoLimpa.slice(1), // Deixa a primeira letra maiúscula
+        "Realizado" // Observação padrão de sucesso
+      ]);
+      
+      totalConcluidas++;
     });
 
-    let startY = 75; // Começa mais para baixo por causa do quadro da equipe
+    let startY = 75; 
 
+    // Imprime as tabelas agrupadas por dia
     Object.keys(atividadesPorData).forEach(data => {
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text(data, 14, startY);
+      doc.text(`Data: ${data}`, 14, startY);
       
       autoTable(doc, {
         startY: startY + 5,
-        head: [['Horário', 'Tipo', 'Descrição']],
+        head: [['Horário', 'Paciente', 'Atividade / Descrição', 'Observações']],
         body: atividadesPorData[data],
         theme: 'striped',
-        headStyles: { fillColor: [13, 148, 136] }, 
+        headStyles: { fillColor: [13, 148, 136] }, // Cor da sua paleta
         styles: { fontSize: 9 },
+        columnStyles: {
+          0: { cellWidth: 20 }, // Horário
+          1: { cellWidth: 40 }, // Paciente
+          2: { cellWidth: 'auto' }, // Descrição
+          3: { cellWidth: 30 }  // Status/Observação
+        },
         margin: { left: 14, right: 14 }
       });
 
@@ -137,28 +161,26 @@ export default function AtividadeRecentePage() {
       startY = 20;
     }
 
+    // NOVO RESUMO PARA CLÍNICAS
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("RESUMO DO PERÍODO", 14, startY);
+    doc.text("RESUMO DE ADESÃO", 14, startY);
     
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    let resumoY = startY + 10;
-    Object.entries(resumoTipos).forEach(([tipo, quantidade]) => {
-      doc.text(`• ${tipo}: ${quantidade}`, 14, resumoY);
-      resumoY += 7;
-    });
+    doc.text(`• Total de atividades concluídas no período: ${totalConcluidas} registro(s).`, 14, startY + 10);
+    doc.text(`• Adesão validada via sistema Aurora de acompanhamento em tempo real.`, 14, startY + 16);
 
     const totalPages = doc.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
       doc.setFontSize(8);
       doc.setTextColor(150);
-      doc.text("Este documento foi gerado eletronicamente e é válido sem assinatura.", 14, doc.internal.pageSize.getHeight() - 15);
+      doc.text("Este documento foi gerado eletronicamente e possui validade para acompanhamento clínico e familiar.", 14, doc.internal.pageSize.getHeight() - 15);
       doc.text(`Página ${i} de ${totalPages}`, doc.internal.pageSize.getWidth() - 30, doc.internal.pageSize.getHeight() - 15);
     }
 
-    doc.save(`Relatorio_Atividades_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
+    doc.save(`Prontuario_Adesao_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
   };
 
   return (
@@ -199,7 +221,6 @@ export default function AtividadeRecentePage() {
                 </div>
              </div>
 
-             {/* NOVOS CARDS DE EQUIPE */}
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-white">
                   <div className="flex items-center gap-2 mb-2 opacity-80">
@@ -236,6 +257,7 @@ export default function AtividadeRecentePage() {
               </h2>
               <div className="h-[2px] mt-4 mb-8 bg-gray-100 dark:bg-gray-800 w-full" />
 
+              {/* A TELA CONTINUA MOSTRANDO TUDO PARA FINS DE AUDITORIA DO GESTOR */}
               <div className="space-y-4">
                 {loading && atividades.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 text-teal-600">
@@ -243,48 +265,51 @@ export default function AtividadeRecentePage() {
                     <p className="font-medium animate-pulse">Buscando registros no servidor...</p>
                   </div>
                 ) : atividades && atividades.length > 0 ? (
-                  atividades.map((atv: Atividade, index: number) => (
-                    <div 
-                      key={atv.id || `atv-${index}`} 
-                      className="animate-in fade-in slide-in-from-bottom-2 duration-500 flex items-start gap-4 p-5 rounded-2xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-zinc-700 hover:border-teal-200 transition-colors shadow-sm"
-                    >
-                      <div className={`w-12 h-12 shrink-0 rounded-full flex items-center justify-center text-white font-bold shadow-inner bg-gradient-to-br ${
-                        atv.tipo === 'idoso' 
-                          ? 'from-emerald-400 to-emerald-600' 
-                          : atv.tipo === 'admin' 
-                            ? 'from-teal-500 to-teal-700' 
-                            : 'from-blue-400 to-blue-600'
-                      }`}>
-                        {atv.usuario ? atv.usuario[0].toUpperCase() : 'A'}
-                      </div>
-                      
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-bold text-gray-900 dark:text-gray-100">{atv.usuario || "Sistema"}</p>
-                            <p className="text-gray-600 dark:text-gray-400 text-sm mt-1 leading-relaxed">
-                              {atv.acao}
-                            </p>
-                          </div>
-                          <Badge 
-                            variant="outline"
-                            className={
-                              atv.tipo === 'idoso' 
-                                ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
-                                : 'bg-blue-100 text-blue-700 border-blue-200'
-                            } 
-                          >
-                            {atv.tipo === 'admin' ? 'Gestão' : atv.tipo}
-                          </Badge>
+                  atividades.map((atv: Atividade, index: number) => {
+                    const perfilFormatado = formatarPerfil(atv.tipo);
+                    return (
+                      <div 
+                        key={atv.id || `atv-${index}`} 
+                        className="animate-in fade-in slide-in-from-bottom-2 duration-500 flex items-start gap-4 p-5 rounded-2xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-zinc-700 hover:border-teal-200 transition-colors shadow-sm"
+                      >
+                        <div className={`w-12 h-12 shrink-0 rounded-full flex items-center justify-center text-white font-bold shadow-inner bg-gradient-to-br ${
+                          atv.tipo === 'idoso' 
+                            ? 'from-emerald-400 to-emerald-600' 
+                            : atv.tipo === 'admin' 
+                              ? 'from-teal-500 to-teal-700' 
+                              : 'from-blue-400 to-blue-600'
+                        }`}>
+                          {atv.usuario ? atv.usuario[0].toUpperCase() : 'A'}
                         </div>
                         
-                        <div className="flex items-center gap-2 mt-3 text-xs font-medium text-gray-400">
-                          <Clock className="w-3.5 h-3.5" />
-                          {atv.timestamp ? new Date(atv.timestamp).toLocaleString('pt-BR') : 'Agora'}
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-bold text-gray-900 dark:text-gray-100">{atv.usuario || "Sistema"}</p>
+                              <p className="text-gray-600 dark:text-gray-400 text-sm mt-1 leading-relaxed">
+                                {atv.acao}
+                              </p>
+                            </div>
+                            <Badge 
+                              variant="outline"
+                              className={
+                                atv.tipo === 'idoso' 
+                                  ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
+                                  : 'bg-blue-100 text-blue-700 border-blue-200'
+                              } 
+                            >
+                              {perfilFormatado}
+                            </Badge>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 mt-3 text-xs font-medium text-gray-400">
+                            <Clock className="w-3.5 h-3.5" />
+                            {atv.timestamp ? new Date(atv.timestamp).toLocaleString('pt-BR') : 'Agora'}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  })
                 ) : (
                   <div className="text-center py-24 text-gray-400 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200">
                     <Activity className="w-16 h-16 mx-auto mb-4 opacity-10" />

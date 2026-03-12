@@ -1,68 +1,88 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { useAuroraSync } from "@/hooks/use-sync"
 import { useToast } from "@/hooks/use-toast"
+import { elderService } from "@/service/elder.service" 
 
 export function RealtimeNotifications() {
-  const { atividades } = useAuroraSync()
   const { toast } = useToast()
-  
-  // Em vez de contar o tamanho, vamos rastrear o ID (ou data) da atividade mais nova
   const lastActivityIdRef = useRef<string | null>(null)
   const isInitialMount = useRef(true)
-  
-  // Pede permissão nativa logo de cara
+
   useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
+    if ("Notification" in window && Notification.permission !== "granted") {
       Notification.requestPermission();
     }
-  }, []);
 
-  useEffect(() => {
-    // Se a lista estiver vazia, não faz nada
-    if (!atividades || atividades.length === 0) return;
+    const verificarNovidades = async () => {
+      try {
+        const logs = await elderService.getLogs();
+        if (!logs || logs.length === 0) return;
 
-    // Pega a atividade que está no topo (a mais recente enviada pelo Back-end)
-    const novaAtividade = atividades[0];
-    
-    // Cria um identificador único para ela (usa ID se tiver, senão usa o timestamp)
-    const currentActivityId = novaAtividade.id || novaAtividade._id || String(novaAtividade.timestamp);
+        const novaAtividade = logs[0];
+        const currentActivityId = novaAtividade.id || novaAtividade._id || String(novaAtividade.timestamp);
 
-    // Se for o primeiro carregamento da tela, a gente só "grava" a última atividade na memória e fica quieto
-    if (isInitialMount.current) {
-      lastActivityIdRef.current = currentActivityId;
-      isInitialMount.current = false;
-      return;
-    }
+        if (isInitialMount.current) {
+          lastActivityIdRef.current = currentActivityId;
+          isInitialMount.current = false;
+          return;
+        }
 
-    // SE O ID DO TOPO FOR DIFERENTE DO QUE CONHECEMOS... TEMOS ATIVIDADE NOVA!
-    if (currentActivityId !== lastActivityIdRef.current) {
-      
-      // A) Notificação Visual dentro do site (Toast)
-      toast({
-        title: `Nova Ação: ${novaAtividade.usuario || "Sistema"}`,
-        description: novaAtividade.acao,
-        duration: 5000,
-        className: novaAtividade.tipo === 'idoso' 
-          ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
-          : 'bg-blue-50 border-blue-200 text-blue-900',
-      })
+        if (currentActivityId !== lastActivityIdRef.current) {
+          // 1. Toca um "Beep" sonoro para chamar a atenção da clínica!
+          try {
+            const audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+            audio.play();
+          } catch (e) {
+             // Ignora se o navegador bloquear autoplay de áudio
+          }
 
-      // B) NOTIFICAÇÃO NATIVA DO SISTEMA (Aparece por cima do YouTube/outras abas)
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification(`Aurora: ${novaAtividade.usuario}`, {
-          body: novaAtividade.acao,
-          icon: "/icon-light-32x32.png", // Usando o ícone que já está no seu metadata!
-          silent: false, 
-        });
+          // 2. Notificação visual dentro do site
+          toast({
+            title: `Nova Ação: ${novaAtividade.usuario}`,
+            description: novaAtividade.acao,
+          })
+
+          // B) NOTIFICAÇÃO NATIVA DO SISTEMA (Aparece fora do navegador)
+          if ("Notification" in window && Notification.permission === "granted") {
+            try {
+              const notification = new Notification(`Aurora: Novo Alerta`, {
+                body: `${novaAtividade.usuario}: ${novaAtividade.acao}`,
+                requireInteraction: true, 
+              });
+              notification.onclick = function() {
+                window.focus();
+                this.close();
+              };
+            } catch (err) {
+              console.error("Erro ao desenhar a notificação nativa:", err);
+            }
+          }
+
+          lastActivityIdRef.current = currentActivityId;
+        }
+      } catch (error) {
+        console.error("Erro no polling:", error);
       }
+    };
 
-      // Atualiza a nossa memória com o novo ID para não apitar repetido
-      lastActivityIdRef.current = currentActivityId;
-    }
+    // Roda a cada 5 segundos
+    const intervalId = setInterval(verificarNovidades, 5000);
 
-  }, [atividades, toast])
+    // O PULO DO GATO: Se o usuário voltar pra aba, força a verificação na mesma hora!
+    const aoVoltarParaAba = () => {
+      if (document.visibilityState === "visible") {
+        verificarNovidades();
+      }
+    };
+    document.addEventListener("visibilitychange", aoVoltarParaAba);
 
-  return null
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", aoVoltarParaAba);
+    };
+    
+  }, [toast]);
+
+  return null;
 }
