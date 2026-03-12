@@ -44,6 +44,7 @@ export interface PessoaSimples {
 }
 
 export interface Atividade {
+  _id: string
   id: string
   usuario: string
   acao: string
