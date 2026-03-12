@@ -7,13 +7,12 @@ import { LembreteModal } from "@/features/reminder-modal"
 import { useToast } from "@/hooks/use-toast"
 import { elderService } from "@/service/elder.service"
 import { getSessionUser } from "@/lib/auth-state"
-// Corrigido para garantir que você tenha a função de concluir
 import { getDailyReminders, deleteReminder, createReminder, markReminderAsDone } from "@/service/remiders.service"
 
 export function SharedLembretes({ userType }: { userType: string }) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
-  const [isSwitching, setIsSwitching] = useState(false) // Novo: Loading suave ao trocar de idoso
+  const [isSwitching, setIsSwitching] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [elders, setElders] = useState<any[]>([])
   const [lembretes, setLembretes] = useState<any[]>([])
@@ -37,8 +36,6 @@ export function SharedLembretes({ userType }: { userType: string }) {
     const carregarInicial = async () => {
       setLoading(true)
       const user = getSessionUser()
-      
-      // CORREÇÃO 1: Cobertura total de IDs para não travar a tela do Idoso
       const idDoIdoso = user?.elderProfileId || user?.elderId || (user as any)?.id || (user as any)?._id;
       const isIdoso = user?.role === "IDOSO";
       setIsIdosoRole(isIdoso);
@@ -70,16 +67,15 @@ export function SharedLembretes({ userType }: { userType: string }) {
       await createReminder(dados);
       toast({ title: "Lembrete criado com sucesso!" });
       setModalOpen(false);
-      buscarLembretes(selectedElderId, true); // Recarrega silenciosamente
+      buscarLembretes(selectedElderId, true);
     } catch (e) {
-      toast({ title: "Erro ao salvar lembrete", variant: "destructive" });
+      toast({ title: "Erro ao salvar", variant: "destructive" });
     }
   };
 
   const handleConcluir = async (id: string) => {
     try {
-      // Otimismo na UI para ficar rápido
-      setLembretes(prev => prev.map(l => (l.id || l._id) === id ? { ...l, isCompleted: true } : l))
+      setLembretes(prev => prev.map(l => (l.id || l._id) === id ? { ...l, isCompleted: true, concluido: true, done: true } : l))
       await markReminderAsDone(id)
       toast({ title: "Tarefa concluída!" })
     } catch (e) {
@@ -97,6 +93,13 @@ export function SharedLembretes({ userType }: { userType: string }) {
       toast({ title: "Erro ao deletar", variant: "destructive" })
     }
   }
+
+  // ORDENAÇÃO: Pendentes no topo, concluídos no fim
+  const lembretesOrdenados = [...lembretes].sort((a, b) => {
+    const aConcluido = a.isCompleted || a.done || a.concluido ? 1 : 0;
+    const bConcluido = b.isCompleted || b.done || b.concluido ? 1 : 0;
+    return aConcluido - bConcluido;
+  });
 
   if (loading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-10 w-10 text-emerald-500" /></div>
 
@@ -117,12 +120,8 @@ export function SharedLembretes({ userType }: { userType: string }) {
               {elders.map(e => <option key={e.id || e._id} value={e.id || e._id}>{e.name}</option>)}
             </select>
           )}
-          {!isIdosoRole && elders.length === 0 && (
-            <p className="text-sm text-amber-600 mt-2 font-medium">Cadastre um idoso primeiro.</p>
-          )}
         </div>
         
-        {/* CORREÇÃO 2: Só exibe o botão se for Admin E tiver idosos cadastrados */}
         {!isIdosoRole && elders.length > 0 && (
           <Button onClick={() => setModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-12 px-6 font-bold shadow-md">
             <Plus className="mr-2 w-5 h-5" /> Criar Novo
@@ -130,17 +129,18 @@ export function SharedLembretes({ userType }: { userType: string }) {
         )}
       </div>
 
-      <div className="grid gap-4">
+      {/* AQUI ESTÁ A CORREÇÃO DO LIMITE DE TELA: max-h e overflow-y-auto */}
+      <div className="grid gap-4 max-h-[70vh] overflow-y-auto pr-2 pb-10">
         {isSwitching ? (
            <div className="flex justify-center py-12"><Loader2 className="animate-spin h-8 w-8 text-emerald-300" /></div>
-        ) : lembretes.length > 0 ? (
-          lembretes.map((l) => {
+        ) : lembretesOrdenados.length > 0 ? (
+          lembretesOrdenados.map((l) => {
             const concluido = l.isCompleted || l.done || l.concluido;
             return (
               <div 
                 key={l.id || l._id} 
-                className={`p-5 bg-white border rounded-2xl flex justify-between items-center shadow-sm border-l-4 transition-all ${
-                  concluido ? "border-l-gray-300 opacity-60 bg-gray-50" : "border-l-emerald-500"
+                className={`p-5 bg-white border rounded-2xl flex justify-between items-center shadow-sm border-l-4 transition-all duration-500 ${
+                  concluido ? "border-l-gray-300 opacity-60 bg-gray-50 scale-[0.98]" : "border-l-emerald-500 hover:shadow-md"
                 }`}
               >
                 <div className="flex items-center gap-5">
@@ -151,13 +151,12 @@ export function SharedLembretes({ userType }: { userType: string }) {
                     {l.type === 'Evento' && <CalendarDays className="w-6 h-6" />}
                   </div>
                   <div>
-                    <p className={`font-black text-xl ${concluido ? "line-through text-gray-400" : "text-gray-800"}`}>{l.title}</p>
-                    <p className="text-sm font-bold text-gray-500 mt-1">{l.time} — <span className="uppercase text-emerald-600/70">{l.type}</span></p>
+                    <p className={`font-black text-xl transition-all ${concluido ? "line-through text-gray-400" : "text-gray-800"}`}>{l.title}</p>
+                    <p className="text-sm font-bold text-gray-500 mt-1">{l.time} — <span className={`uppercase ${concluido ? "text-gray-400" : "text-emerald-600/70"}`}>{l.type}</span></p>
                   </div>
                 </div>
 
                 <div className="flex gap-2 items-center">
-                  {/* CORREÇÃO 3: Botão de concluir adicionado! */}
                   <Button 
                     variant="ghost" 
                     size="icon" 
@@ -182,7 +181,7 @@ export function SharedLembretes({ userType }: { userType: string }) {
           })
         ) : (
           <div className="text-center py-20 border-2 border-dashed border-gray-200 rounded-3xl bg-white">
-            <p className="text-gray-400 font-bold text-lg">Nenhum lembrete encontrado.</p>
+            <p className="text-gray-400 font-bold text-lg">Nenhum lembrete cadastrado.</p>
           </div>
         )}
       </div>

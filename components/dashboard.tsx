@@ -3,18 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { 
-  CircleDashedIcon, 
-  Pill, 
-  Utensils, 
-  Repeat, 
-  Loader2, 
-  Users, 
-  CalendarDays,
-  CheckCircle2,
-  FileHeart, 
-  ShieldCheck,
-  User,
-  Cake
+  CircleDashedIcon, Pill, Utensils, Repeat, Loader2, Users, CalendarDays, CheckCircle2, FileHeart, ShieldCheck, User, Cake
 } from "lucide-react"
 import { LembreteModal } from "@/features/reminder-modal"
 import { useToast } from "@/hooks/use-toast"
@@ -38,15 +27,7 @@ export function SharedDashboard({ userType }: { userType: string }) {
   const [showFichaDialog, setShowFichaDialog] = useState(false)
   const [fichaLoading, setFichaLoading] = useState(false)
   const [fichaData, setFichaData] = useState({
-    bloodType: "", 
-    typePlanetLife: "", 
-    allergies: "", 
-    medications: "", 
-    medicalConditions: "",
-    observations: "", 
-    emergencyContact: "", 
-    address: "", 
-    phone: ""
+    bloodType: "", typePlanetLife: "", allergies: "", medications: "", medicalConditions: "", observations: "", emergencyContact: "", address: "", phone: ""
   })
 
   const carregarLembretes = useCallback(async (id: string) => {
@@ -67,7 +48,6 @@ export function SharedDashboard({ userType }: { userType: string }) {
       const currentUser = getSessionUser()
       setUser(currentUser)
 
-      // CORREÇÃO 1: Identificação robusta do ID
       const idDoIdoso = currentUser?.elderProfileId || currentUser?.elderId || (currentUser as any)?.id || (currentUser as any)?._id;
       const isIdoso = currentUser?.role === "IDOSO";
 
@@ -92,21 +72,16 @@ export function SharedDashboard({ userType }: { userType: string }) {
     init()
   }, [carregarLembretes])
 
-  // --- LOGICA DA FICHA ---
   const handleOpenFicha = () => {
     const idoso = elders.find(e => (e.id || e._id) === selectedElderId);
     if (!idoso) return;
 
     setFichaData({
-      bloodType: idoso.bloodType || "",
-      typePlanetLife: idoso.typePlanetLife || "",
+      bloodType: idoso.bloodType || "", typePlanetLife: idoso.typePlanetLife || "",
       allergies: Array.isArray(idoso.allergies) ? idoso.allergies.join(", ") : idoso.allergies || "",
       medications: Array.isArray(idoso.medications) ? idoso.medications.join(", ") : idoso.medications || "",
       medicalConditions: Array.isArray(idoso.medicalConditions) ? idoso.medicalConditions.join(", ") : idoso.medicalConditions || "",
-      observations: idoso.observations || "",
-      emergencyContact: idoso.emergencyContact || "",
-      address: idoso.address || "",
-      phone: idoso.phone || ""
+      observations: idoso.observations || "", emergencyContact: idoso.emergencyContact || "", address: idoso.address || "", phone: idoso.phone || ""
     });
     setShowFichaDialog(true);
   }
@@ -145,7 +120,6 @@ export function SharedDashboard({ userType }: { userType: string }) {
 
   const handleConcluir = async (id: string) => {
     try {
-      // CORREÇÃO 3: Otimismo robusto na UI
       setLembretes(prev => prev.map(l => 
         (l.id || l._id) === id ? { ...l, done: true, isCompleted: true, concluido: true } : l
       ))
@@ -156,6 +130,13 @@ export function SharedDashboard({ userType }: { userType: string }) {
       toast({ title: "Erro ao concluir", variant: "destructive" })
     }
   }
+
+  // ORDENAÇÃO: Pendentes no topo, concluídos no fim
+  const lembretesOrdenados = [...lembretes].sort((a, b) => {
+    const aConcluido = a.isCompleted || a.done || a.concluido ? 1 : 0;
+    const bConcluido = b.isCompleted || b.done || b.concluido ? 1 : 0;
+    return aConcluido - bConcluido;
+  });
 
   const currentElder = elders.find(e => (e.id || e._id) === selectedElderId);
 
@@ -176,7 +157,6 @@ export function SharedDashboard({ userType }: { userType: string }) {
             </div>
             
             <div className="flex items-center gap-3">
-               {/* CORREÇÃO 2: Botão da ficha APENAS para gestores/cuidadores */}
                {user?.role !== "IDOSO" && selectedElderId && (
                  <Button 
                    onClick={handleOpenFicha}
@@ -221,12 +201,12 @@ export function SharedDashboard({ userType }: { userType: string }) {
 
               <CalendarTimeline />
 
-              <div className="mt-8 space-y-4">
+              {/* BARRA DE ROLAGEM ADICIONADA AQUI max-h-[450px] overflow-y-auto */}
+              <div className="mt-8 space-y-4 max-h-[450px] overflow-y-auto pr-3 pb-6">
                 {loading ? (
                   <div className="flex justify-center py-10"><Loader2 className="animate-spin text-emerald-500" /></div>
-                ) : lembretes.length > 0 ? (
-                  lembretes.map((l) => {
-                    // Check abrangente de conclusão
+                ) : lembretesOrdenados.length > 0 ? (
+                  lembretesOrdenados.map((l) => {
                     const isCompleted = l.done || l.concluido || l.isCompleted;
                     return (
                       <div 
@@ -234,7 +214,7 @@ export function SharedDashboard({ userType }: { userType: string }) {
                         className={`flex items-center gap-4 p-4 rounded-2xl border-l-4 transition-all duration-300 ${
                           isCompleted 
                             ? "bg-gray-100/50 dark:bg-zinc-900/40 border-gray-300 opacity-70" 
-                            : "bg-gray-50 dark:bg-zinc-900 border-emerald-500 shadow-sm"
+                            : "bg-gray-50 dark:bg-zinc-900 border-emerald-500 shadow-sm hover:shadow-md"
                         }`}
                       >
                         <div className={isCompleted ? "text-gray-400" : "text-emerald-500"}>
@@ -285,7 +265,7 @@ export function SharedDashboard({ userType }: { userType: string }) {
         defaultElderId={selectedElderId} 
       />
 
-      {/* --- MODAL DA FICHA MÉDICA --- */}
+      {/* --- MODAL DA FICHA MÉDICA MANTIDO IGUAL --- */}
       <Dialog open={showFichaDialog} onOpenChange={setShowFichaDialog}>
         <DialogPortal>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto z-[9999] border-none shadow-2xl">

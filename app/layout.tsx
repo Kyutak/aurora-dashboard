@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
+import { RealtimeNotifications } from "@/components/RealtimeNotifications"
 import { EmergencyListener } from "@/components/Emergency-istener"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Toaster />
         <Analytics />
         <EmergencyListener />
+        <RealtimeNotifications/>
       </body>
     </html>
   )
