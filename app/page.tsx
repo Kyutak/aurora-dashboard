@@ -36,26 +36,6 @@ export default function HomePage() {
                 </Button>
               </Link>
             </div>
-            <div className="mt-8 pt-6 border-t">
-              <p className="text-sm text-muted-foreground mb-3">Acesso rápido para demonstração:</p>
-              <div className="grid grid-cols-3 gap-2">
-                <Link href="/idoso/dashboard">
-                  <Button variant="ghost" size="sm" className="w-full text-xs">
-                    Idoso
-                  </Button>
-                </Link>
-                <Link href="/familiar/dashboard">
-                  <Button variant="ghost" size="sm" className="w-full text-xs">
-                    Familiar
-                  </Button>
-                </Link>
-                <Link href="/admin/dashboard">
-                  <Button variant="ghost" size="sm" className="w-full text-xs">
-                    Admin
-                  </Button>
-                </Link>
-              </div>
-            </div>
           </Card>
         </div>
       </div>

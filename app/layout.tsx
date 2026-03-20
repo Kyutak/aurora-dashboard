@@ -5,7 +5,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 import { RealtimeNotifications } from "@/components/RealtimeNotifications"
-import { EmergencyListener } from "@/components/Emergency-istener"
+import { EmergencyListener } from "@/components/EmergencyListener"
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })

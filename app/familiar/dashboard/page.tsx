@@ -1,15 +1,9 @@
 "use client"
 import { useEffect } from "react"
 import { FamiliarSidebar } from "@/components/layout/familiar-sidebar"
-import { SharedDashboard } from "@/components/dashboard"
+import { SharedDashboard } from "@/components/Dashboard"
 
 export default function FamiliarDashboard() {
-  useEffect(() => {
-    window.scrollTo({
-      top: 52, // ajuste aqui (px)
-      behavior: "auto",
-    })
-  }, [])
 
   return (
     <div className="flex min-h-screen bg-background">

@@ -1,90 +1,89 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+
+const DAY_NAMES_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
+const DAY_NAMES_FULL  = [
+  "Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira",
+  "Quinta-feira", "Sexta-feira", "Sábado",
+]
+const MONTH_NAMES = [
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+]
+
+function isSameDay(a: Date, b: Date) {
+  return a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()
+}
+
+function getWeekDays(anchor: Date) {
+  const days = []
+  const start = new Date(anchor)
+  start.setDate(anchor.getDate() - 3)
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    days.push(d)
+  }
+  return days
+}
 
 export function CalendarTimeline() {
-  const [currentDate, setCurrentDate] = useState(new Date())
-//calendário estilo time-line para navegação entre dias
+  const today = new Date()
+  const [anchor, setAnchor] = useState<Date>(today)
+  const weekDays = getWeekDays(anchor)
 
-  useEffect(() => {
-    // Update date every minute to keep it current
-    const interval = setInterval(() => {
-      setCurrentDate(new Date())
-    }, 60000)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  const getDaysArray = () => {
-    const days = []
-    const today = new Date()
-
-    // Get 2 days before and 2 days after today
-    for (let i = -3; i <= 3; i++) {
-      const date = new Date(today)
-      date.setDate(today.getDate() + i)
-      days.push(date)
-    }
-
-    return days
+  const shiftWeek = (dir: number) => {
+    const next = new Date(anchor)
+    next.setDate(anchor.getDate() + dir * 7)
+    setAnchor(next)
   }
-
-  const formatDayOfWeek = (date: Date) => {
-    return date.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "")
-  }
-
-  const formatFullDate = (date: Date) => {
-    return date.toLocaleDateString("pt-BR", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
-  }
-
-  const isToday = (date: Date) => {
-    const today = new Date()
-    return (
-      date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear()
-    )
-  }
-
-  const days = getDaysArray()
 
   return (
-    <div className="w-full mb-6 mt-[-25px]">
-      {/* Full date display */}
-      <div className="text-center mb-4">
-        <p className="text-lg font-semibold text-foreground capitalize">{formatFullDate(currentDate)}</p>
+    <div className="px-1 py-1">
+      <div className="mb-4">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">
+          Hoje
+        </p>
+        <p className="text-[19px] font-semibold text-slate-800 dark:text-white leading-tight">
+          {DAY_NAMES_FULL[today.getDay()]}, {today.getDate()} de {MONTH_NAMES[today.getMonth()]}
+        </p>
       </div>
 
-      {/* Timeline */}
-      <div className="flex items-center justify-center gap-2 md:gap-4 pb-0">
-        {days.map((date, index) => {
-          const today = isToday(date)
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => shiftWeek(-1)}
+          className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
 
-          return (
-            <div
-              key={index}
-              className={`flex flex-col items-center gap-1 min-w-[60px] transition-all ${
-                today ? "scale-110" : "scale-100"
-              }`}
-            >
+        <div className="flex flex-1 items-center justify-between gap-1">
+          {weekDays.map((day) => {
+            const isToday = isSameDay(day, today)
+            return (
               <div
-                className={`flex flex-col items-center justify-center w-14 h-14 rounded-full transition-all my-1 ${
-                  today
-                    ? "bg-gradient-to-br from-blue-500 to-emerald-500 text-white shadow-lg"
-                    : "bg-white dark:bg-gray-800 text-muted-foreground border-2 border-gray-200 dark:border-gray-700"
-                }`}
+                key={day.toISOString()}
+                className={`flex flex-col items-center gap-1 flex-1 py-2 rounded-2xl ${isToday ? "bg-gradient-to-br from-teal-400 to-teal-600" : ""}`}
               >
-                <span className="text-xs font-medium uppercase">{formatDayOfWeek(date)}</span>
-                <span className={`text-lg font-bold ${today ? "text-white" : ""}`}>{date.getDate()}</span>
+                <span className={`text-[11px] font-semibold uppercase tracking-wide ${isToday ? "text-white/80" : "text-slate-400 dark:text-zinc-500"}`}>
+                  {DAY_NAMES_SHORT[day.getDay()]}
+                </span>
+                <span className={`text-[15px] font-semibold leading-none ${isToday ? "text-white" : "text-slate-700 dark:text-zinc-200"}`}>
+                  {day.getDate()}
+                </span>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
+
+        <button
+          onClick={() => shiftWeek(1)}
+          className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
     </div>
   )

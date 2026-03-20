@@ -4,8 +4,6 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { Pencil, Trash2, LogOut, Check, X } from "lucide-react"
 import {
@@ -16,7 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-
 import { getSessionUser, getUserLabel, SessionUser } from "@/lib/auth-state"
 
 interface SharedConfiguracoesProps {
@@ -27,9 +24,9 @@ export function SharedConfiguracoes({ userType }: SharedConfiguracoesProps) {
   const router = useRouter()
   const { toast } = useToast()
 
-  const [user, setUser] = useState<SessionUser | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
-  const [newName, setNewName] = useState("")
+  const [user, setUser]                   = useState<SessionUser | null>(null)
+  const [isEditing, setIsEditing]         = useState(false)
+  const [newName, setNewName]             = useState("")
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   useEffect(() => {
@@ -49,16 +46,11 @@ export function SharedConfiguracoes({ userType }: SharedConfiguracoesProps) {
       })
       return
     }
-
     const updatedUser = { ...user, name: newName.trim() }
     sessionStorage.setItem("user", JSON.stringify(updatedUser))
     setUser(updatedUser)
     setIsEditing(false)
-
-    toast({
-      title: "Nome atualizado",
-      description: "Seu nome foi atualizado com sucesso.",
-    })
+    toast({ title: "Nome atualizado", description: "Seu nome foi atualizado com sucesso." })
   }
 
   const handleLogout = () => {
@@ -68,73 +60,130 @@ export function SharedConfiguracoes({ userType }: SharedConfiguracoesProps) {
 
   const handleDeleteProfile = () => {
     sessionStorage.removeItem("user")
-    toast({
-      title: "Perfil excluído",
-      description: "Seu perfil foi excluído com sucesso.",
-    })
+    toast({ title: "Perfil excluído", description: "Seu perfil foi excluído com sucesso." })
     router.push("/")
   }
 
   const initial = user.name.charAt(0).toUpperCase()
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gray-100 dark:bg-gray-900">
-      <div className="relative z-10 pt-56">
-        <div className="bg-zinc-50 dark:bg-gray-900 rounded-t-[32px] p-6">
-          <h2 className="text-3xl font-bold mb-6">Configurações</h2>
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 pb-24 md:pb-0">
 
-          <Card className="p-6 mb-6">
-            <div className="flex items-center gap-6">
-              <div className="w-20 h-20 rounded-full bg-teal-500 flex items-center justify-center text-white text-3xl">
-                {initial}
-              </div>
-
-              <div className="flex-1">
-                {isEditing ? (
-                  <div className="flex gap-2">
-                    <Input value={newName} onChange={(e) => setNewName(e.target.value)} />
-                    <Button size="icon" onClick={handleSaveName}>
-                      <Check />
-                    </Button>
-                    <Button size="icon" onClick={() => setIsEditing(false)}>
-                      <X />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-2xl font-semibold">{user.name}</h3>
-                    <Button size="icon" variant="ghost" onClick={() => setIsEditing(true)}>
-                      <Pencil />
-                    </Button>
-                  </div>
-                )}
-                <p className="text-muted-foreground">{user.email}</p>
-                <p className="text-sm">{getUserLabel(user.role)}</p>
-              </div>
-            </div>
-          </Card>
-
-          <Button variant="outline" className="w-full mb-3" onClick={handleLogout}>
-            <LogOut className="mr-2" /> Sair
-          </Button>
-
-          <Button variant="destructive" className="w-full" onClick={() => setDeleteDialogOpen(true)}>
-            <Trash2 className="mr-2" /> Excluir perfil
-          </Button>
+      {/* ── Header ──────────────────────────────────────────────── */}
+      <header className="bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800 shadow-sm">
+        <div className="max-w-3xl mx-auto px-6 h-20 flex items-center">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            Configurações
+          </h1>
         </div>
-      </div>
+      </header>
 
+      {/* ── Conteúdo ─────────────────────────────────────────────── */}
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-4">
+
+        {/* Perfil */}
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm px-5 py-5">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Perfil</p>
+
+          <div className="flex items-center gap-4">
+            {/* Avatar */}
+            <div className="w-14 h-14 shrink-0 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center text-white font-bold text-xl shadow-md">
+              {initial}
+            </div>
+
+            {/* Nome + email */}
+            <div className="flex-1 min-w-0">
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    autoFocus
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); if (e.key === "Escape") setIsEditing(false) }}
+                    className="h-9 text-sm"
+                  />
+                  <button
+                    onClick={handleSaveName}
+                    className="p-1.5 rounded-full text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors focus:outline-none"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-colors focus:outline-none"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <p className="font-semibold text-slate-800 dark:text-white truncate">{user.name}</p>
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="shrink-0 p-0.5 rounded text-slate-300 hover:text-sky-500 transition-colors focus:outline-none"
+                    aria-label="Editar nome"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              <p className="text-xs text-slate-400 mt-0.5 truncate">{user.email}</p>
+              <p className="text-xs text-slate-400 truncate">{getUserLabel(user.role)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Ações */}
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm divide-y divide-slate-100 dark:divide-zinc-800">
+
+          {/* Sair */}
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/60 transition-colors rounded-t-2xl"
+          >
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-slate-100 dark:bg-zinc-800">
+              <LogOut className="w-4 h-4 text-slate-500" />
+            </div>
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Sair da conta</span>
+          </button>
+
+          {/* Excluir perfil */}
+          <button
+            onClick={() => setDeleteDialogOpen(true)}
+            className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors rounded-b-2xl"
+          >
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-red-50 dark:bg-red-950/40">
+              <Trash2 className="w-4 h-4 text-red-500" />
+            </div>
+            <span className="text-sm font-semibold text-red-500">Excluir perfil</span>
+          </button>
+
+        </div>
+      </main>
+
+      {/* ── Dialog de confirmação ─────────────────────────────────── */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Excluir perfil</DialogTitle>
-            <DialogDescription>Essa ação não pode ser desfeita.</DialogDescription>
+            <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
+              Excluir perfil
+            </DialogTitle>
+            <DialogDescription className="text-sm text-slate-400">
+              Essa ação não pode ser desfeita.
+            </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              className="rounded-full"
+            >
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={handleDeleteProfile}>
+            <Button
+              onClick={handleDeleteProfile}
+              className="bg-red-500 hover:bg-red-600 text-white rounded-full"
+            >
               Excluir
             </Button>
           </DialogFooter>

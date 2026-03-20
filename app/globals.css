@@ -3,6 +3,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+ input::placeholder {
+  color: #a8a8a8; /* Cor mais escura para maior contraste */
+  opacity: 1; /* Garante consistência no Firefox */
+}
+
 :root {
   /* Updated color scheme to use green and blue as primary colors */
   --background: oklch(0.99 0.005 180);

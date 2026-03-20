@@ -2,22 +2,33 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Loader2, Plus, Trash2, Pill, Utensils, Repeat, CalendarDays, CheckCircle2, CircleDashedIcon } from "lucide-react"
+import { Loader2, Plus, Trash2, Pill, Utensils, Repeat, CalendarDays, CheckCircle2, CircleDashedIcon, Users, Pencil, X, Check } from "lucide-react"
 import { LembreteModal } from "@/features/reminder-modal"
 import { useToast } from "@/hooks/use-toast"
 import { elderService } from "@/service/elder.service"
 import { getSessionUser } from "@/lib/auth-state"
-import { getDailyReminders, deleteReminder, createReminder, markReminderAsDone } from "@/service/remiders.service"
+import { getDailyReminders, deleteReminder, createReminder, markReminderAsDone, updateReminder } from "@/service/remiders.service"
+
+const TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string; border: string }> = {
+  Medicamento: { icon: Pill,         color: "text-violet-500", bg: "bg-violet-50 dark:bg-violet-950/40", border: "border-l-violet-400" },
+  Refeição:    { icon: Utensils,     color: "text-amber-500",  bg: "bg-amber-50 dark:bg-amber-950/40",   border: "border-l-amber-400"  },
+  Rotina:      { icon: Repeat,       color: "text-sky-500",    bg: "bg-sky-50 dark:bg-sky-950/40",       border: "border-l-sky-400"    },
+  Evento:      { icon: CalendarDays, color: "text-rose-500",   bg: "bg-rose-50 dark:bg-rose-950/40",     border: "border-l-rose-400"   },
+}
 
 export function SharedLembretes({ userType }: { userType: string }) {
   const { toast } = useToast()
-  const [loading, setLoading] = useState(true)
-  const [isSwitching, setIsSwitching] = useState(false)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [elders, setElders] = useState<any[]>([])
-  const [lembretes, setLembretes] = useState<any[]>([])
+  const [loading, setLoading]                 = useState(true)
+  const [isSwitching, setIsSwitching]         = useState(false)
+  const [modalOpen, setModalOpen]             = useState(false)
+  const [elders, setElders]                   = useState<any[]>([])
+  const [lembretes, setLembretes]             = useState<any[]>([])
   const [selectedElderId, setSelectedElderId] = useState<string>("")
-  const [isIdosoRole, setIsIdosoRole] = useState(false)
+  const [isIdosoRole, setIsIdosoRole]         = useState(false)
+  const [editingId, setEditingId]             = useState<string | null>(null)
+  const [editTitle, setEditTitle]             = useState("")
+  const [editTime, setEditTime]               = useState("")
+  const [savingId, setSavingId]               = useState<string | null>(null)
 
   const buscarLembretes = useCallback(async (id: string, silencioso = false) => {
     if (!id) return
@@ -25,7 +36,7 @@ export function SharedLembretes({ userType }: { userType: string }) {
       if (!silencioso) setIsSwitching(true)
       const data = await getDailyReminders(id)
       setLembretes(data || [])
-    } catch (e) {
+    } catch {
       toast({ title: "Erro ao carregar lista", variant: "destructive" })
     } finally {
       if (!silencioso) setIsSwitching(false)
@@ -36,9 +47,9 @@ export function SharedLembretes({ userType }: { userType: string }) {
     const carregarInicial = async () => {
       setLoading(true)
       const user = getSessionUser()
-      const idDoIdoso = user?.elderProfileId || user?.elderId || (user as any)?.id || (user as any)?._id;
-      const isIdoso = user?.role === "IDOSO";
-      setIsIdosoRole(isIdoso);
+      const idDoIdoso = user?.elderProfileId || user?.elderId || (user as any)?.id || (user as any)?._id
+      const isIdoso = user?.role === "IDOSO"
+      setIsIdosoRole(isIdoso)
 
       if (isIdoso && idDoIdoso) {
         setSelectedElderId(idDoIdoso)
@@ -53,8 +64,8 @@ export function SharedLembretes({ userType }: { userType: string }) {
             setSelectedElderId(idInicial)
             await buscarLembretes(idInicial)
           }
-        } catch (error) { 
-          console.error(error) 
+        } catch (error) {
+          console.error(error)
         }
       }
       setLoading(false)
@@ -64,21 +75,56 @@ export function SharedLembretes({ userType }: { userType: string }) {
 
   const handleSalvar = async (dados: any) => {
     try {
-      await createReminder(dados);
-      toast({ title: "Lembrete criado com sucesso!" });
-      setModalOpen(false);
-      buscarLembretes(selectedElderId, true);
-    } catch (e) {
-      toast({ title: "Erro ao salvar", variant: "destructive" });
+      await createReminder(dados)
+      toast({ title: "Lembrete criado com sucesso!" })
+      setModalOpen(false)
+      buscarLembretes(selectedElderId, true)
+    } catch {
+      toast({ title: "Erro ao salvar", variant: "destructive" })
     }
-  };
+  }
+
+  const handleIniciarEdicao = (l: any) => {
+    setEditingId(l.id || l._id)
+    setEditTitle(l.title)
+    setEditTime(l.time)
+  }
+
+  const handleCancelarEdicao = () => {
+    setEditingId(null)
+    setEditTitle("")
+    setEditTime("")
+  }
+
+  const handleSalvarEdicao = async (l: any) => {
+    const id = l.id || l._id
+    setSavingId(id)
+    try {
+      await updateReminder(id, {
+        title: editTitle,
+        time: editTime,
+        type: l.type,
+        daysOfWeek: l.daysOfWeek ?? [],
+        elderId: l.elderId ?? selectedElderId,
+      })
+      setLembretes(prev => prev.map(item =>
+        (item.id || item._id) === id ? { ...item, title: editTitle, time: editTime } : item
+      ))
+      toast({ title: "Lembrete atualizado!" })
+      handleCancelarEdicao()
+    } catch {
+      toast({ title: "Erro ao atualizar", variant: "destructive" })
+    } finally {
+      setSavingId(null)
+    }
+  }
 
   const handleConcluir = async (id: string) => {
     try {
       setLembretes(prev => prev.map(l => (l.id || l._id) === id ? { ...l, isCompleted: true, concluido: true, done: true } : l))
       await markReminderAsDone(id)
       toast({ title: "Tarefa concluída!" })
-    } catch (e) {
+    } catch {
       buscarLembretes(selectedElderId, true)
       toast({ title: "Erro ao concluir", variant: "destructive" })
     }
@@ -89,108 +135,207 @@ export function SharedLembretes({ userType }: { userType: string }) {
       await deleteReminder(id)
       setLembretes(prev => prev.filter(l => (l.id || l._id) !== id))
       toast({ title: "Lembrete removido" })
-    } catch (e) {
+    } catch {
       toast({ title: "Erro ao deletar", variant: "destructive" })
     }
   }
 
-  // ORDENAÇÃO: Pendentes no topo, concluídos no fim
   const lembretesOrdenados = [...lembretes].sort((a, b) => {
-    const aConcluido = a.isCompleted || a.done || a.concluido ? 1 : 0;
-    const bConcluido = b.isCompleted || b.done || b.concluido ? 1 : 0;
-    return aConcluido - bConcluido;
-  });
+    const aConcluido = a.isCompleted || a.done || a.concluido ? 1 : 0
+    const bConcluido = b.isCompleted || b.done || b.concluido ? 1 : 0
+    return aConcluido - bConcluido
+  })
 
-  if (loading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-10 w-10 text-emerald-500" /></div>
+  const pendentes = lembretesOrdenados.filter(l => !(l.done || l.concluido || l.isCompleted))
+
+  if (loading) return (
+    <div className="flex justify-center items-center min-h-screen bg-slate-50 dark:bg-zinc-950">
+      <Loader2 className="animate-spin h-8 w-8 text-emerald-500" />
+    </div>
+  )
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex justify-between items-center mb-8 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-        <div>
-          <h2 className="text-3xl font-black text-emerald-700">Lembretes</h2>
-          {!isIdosoRole && elders.length > 0 && (
-            <select 
-              value={selectedElderId}
-              onChange={(e) => {
-                setSelectedElderId(e.target.value)
-                buscarLembretes(e.target.value)
-              }}
-              className="mt-2 p-2 px-3 bg-emerald-50 rounded-lg text-sm font-bold text-emerald-800 outline-none cursor-pointer border border-emerald-100"
-            >
-              {elders.map(e => <option key={e.id || e._id} value={e.id || e._id}>{e.name}</option>)}
-            </select>
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950">
+
+      {/* ── Header ──────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-30 bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800 shadow-sm">
+        <div className="max-w-3xl mx-auto px-6 h-20 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Lembretes</h1>
+            {pendentes.length > 0 && (
+              <span className="inline-flex items-center justify-center h-6 min-w-6 px-2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
+                {pendentes.length}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0">
+            {!isIdosoRole && elders.length > 0 && (
+              <div className="flex items-center gap-2 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 h-9 bg-white dark:bg-zinc-800">
+                <Users className="w-4 h-4 text-slate-400 shrink-0" />
+                <select
+                  value={selectedElderId}
+                  onChange={(e) => { setSelectedElderId(e.target.value); buscarLembretes(e.target.value) }}
+                  className="bg-transparent font-semibold outline-none cursor-pointer text-slate-700 dark:text-slate-200 text-sm max-w-[140px]"
+                >
+                  {elders.map(e => (
+                    <option key={e.id || e._id} value={e.id || e._id}>{e.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {!isIdosoRole && (
+              <Button
+                onClick={() => setModalOpen(true)}
+                size="sm"
+                className="gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full shadow-sm px-4"
+              >
+                <Plus className="w-4 h-4" />
+                Novo lembrete
+              </Button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* ── Conteúdo ─────────────────────────────────────────────── */}
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm px-5 py-5">
+
+          {isSwitching ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="animate-spin h-6 w-6 text-emerald-500" />
+            </div>
+          ) : lembretesOrdenados.length === 0 ? (
+            <p className="text-center text-slate-400 text-sm py-10">Nenhum lembrete cadastrado.</p>
+          ) : (
+            <div className="space-y-2.5 pb-2">
+              {lembretesOrdenados.map((l) => {
+                const isCompleted = l.isCompleted || l.done || l.concluido
+                const isEditing   = editingId === (l.id || l._id)
+                const isSaving    = savingId  === (l.id || l._id)
+                const cfg         = TYPE_CONFIG[l.type] ?? TYPE_CONFIG["Rotina"]
+                const Icon        = cfg.icon
+
+                return (
+                  <div
+                    key={l.id || l._id}
+                    className={`
+                      flex items-center gap-4 p-4 rounded-xl border border-slate-100 dark:border-zinc-700
+                      border-l-4 transition-all duration-200
+                      ${isEditing
+                        ? `bg-white dark:bg-zinc-800 ${cfg.border} shadow-md ring-1 ring-slate-200 dark:ring-zinc-600`
+                        : isCompleted
+                          ? "bg-slate-50 dark:bg-zinc-800/50 border-l-slate-200 dark:border-l-zinc-600 opacity-55"
+                          : `bg-slate-50 dark:bg-zinc-800/40 ${cfg.border} hover:shadow-sm hover:-translate-y-px`
+                      }
+                    `}
+                  >
+                    {/* Ícone */}
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${isCompleted ? "bg-slate-100 dark:bg-zinc-700" : cfg.bg}`}>
+                      <Icon className={`w-5 h-5 ${isCompleted ? "text-slate-400" : cfg.color}`} />
+                    </div>
+
+                    {/* Texto / Edição inline */}
+                    <div className="flex-1 min-w-0">
+                      {isEditing ? (
+                        <div className="flex flex-col gap-1.5">
+                          <input
+                            autoFocus
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleSalvarEdicao(l); if (e.key === "Escape") handleCancelarEdicao() }}
+                            className="w-full text-sm font-semibold bg-slate-100 dark:bg-zinc-700 text-slate-800 dark:text-white rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
+                            placeholder="Título do lembrete"
+                          />
+                          <input
+                            value={editTime}
+                            onChange={(e) => setEditTime(e.target.value)}
+                            type="time"
+                            className="w-28 text-xs bg-slate-100 dark:bg-zinc-700 text-slate-500 dark:text-zinc-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className={`font-semibold text-sm truncate ${isCompleted ? "line-through text-slate-400" : "text-slate-800 dark:text-white"}`}>
+                            {l.title}
+                          </p>
+                          {!isCompleted && !isIdosoRole && (
+                            <button
+                              onClick={() => handleIniciarEdicao(l)}
+                              className="shrink-0 p-0.5 rounded text-slate-300 hover:text-sky-500 transition-colors focus:outline-none"
+                              aria-label="Editar lembrete"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {!isEditing && (
+                        <p className="text-xs text-slate-400 mt-0.5">{l.time} · {l.type}</p>
+                      )}
+                    </div>
+
+                    {/* Ações */}
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {isEditing ? (
+                        <>
+                          <button
+                            onClick={() => handleSalvarEdicao(l)}
+                            disabled={isSaving}
+                            className="p-1.5 rounded-full text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors focus:outline-none disabled:opacity-50"
+                            aria-label="Salvar"
+                          >
+                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={handleCancelarEdicao}
+                            className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-colors focus:outline-none"
+                            aria-label="Cancelar"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            disabled={isCompleted}
+                            onClick={() => handleConcluir(l.id || l._id)}
+                            className="p-1.5 rounded-full focus:outline-none disabled:cursor-default"
+                            aria-label={isCompleted ? "Concluído" : "Marcar como concluído"}
+                          >
+                            {isCompleted
+                              ? <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                              : <CircleDashedIcon className="w-6 h-6 text-slate-300 hover:text-emerald-500 transition-colors" />
+                            }
+                          </button>
+
+                          {!isIdosoRole && (
+                            <button
+                              onClick={() => handleDeletar(l.id || l._id)}
+                              className="p-1.5 rounded-full text-red-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors focus:outline-none"
+                              aria-label="Remover lembrete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
-        
-        {!isIdosoRole && elders.length > 0 && (
-          <Button onClick={() => setModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-12 px-6 font-bold shadow-md">
-            <Plus className="mr-2 w-5 h-5" /> Criar Novo
-          </Button>
-        )}
-      </div>
+      </main>
 
-      {/* AQUI ESTÁ A CORREÇÃO DO LIMITE DE TELA: max-h e overflow-y-auto */}
-      <div className="grid gap-4 max-h-[70vh] overflow-y-auto pr-2 pb-10">
-        {isSwitching ? (
-           <div className="flex justify-center py-12"><Loader2 className="animate-spin h-8 w-8 text-emerald-300" /></div>
-        ) : lembretesOrdenados.length > 0 ? (
-          lembretesOrdenados.map((l) => {
-            const concluido = l.isCompleted || l.done || l.concluido;
-            return (
-              <div 
-                key={l.id || l._id} 
-                className={`p-5 bg-white border rounded-2xl flex justify-between items-center shadow-sm border-l-4 transition-all duration-500 ${
-                  concluido ? "border-l-gray-300 opacity-60 bg-gray-50 scale-[0.98]" : "border-l-emerald-500 hover:shadow-md"
-                }`}
-              >
-                <div className="flex items-center gap-5">
-                  <div className={`p-4 rounded-2xl ${concluido ? "bg-gray-200 text-gray-400" : "bg-emerald-50 text-emerald-600"}`}>
-                    {l.type === 'Medicamento' && <Pill className="w-6 h-6" />}
-                    {l.type === 'Refeição' && <Utensils className="w-6 h-6" />}
-                    {l.type === 'Rotina' && <Repeat className="w-6 h-6" />}
-                    {l.type === 'Evento' && <CalendarDays className="w-6 h-6" />}
-                  </div>
-                  <div>
-                    <p className={`font-black text-xl transition-all ${concluido ? "line-through text-gray-400" : "text-gray-800"}`}>{l.title}</p>
-                    <p className="text-sm font-bold text-gray-500 mt-1">{l.time} — <span className={`uppercase ${concluido ? "text-gray-400" : "text-emerald-600/70"}`}>{l.type}</span></p>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 items-center">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    disabled={concluido}
-                    onClick={() => handleConcluir(l.id || l._id)}
-                  >
-                    {concluido ? (
-                      <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-                    ) : (
-                      <CircleDashedIcon className="w-8 h-8 text-gray-300 hover:text-emerald-500 transition-colors" />
-                    )}
-                  </Button>
-
-                  {!isIdosoRole && (
-                    <Button variant="ghost" size="icon" onClick={() => handleDeletar(l.id || l._id)} className="text-red-300 hover:text-red-600 hover:bg-red-50">
-                      <Trash2 className="h-6 w-6" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )
-          })
-        ) : (
-          <div className="text-center py-20 border-2 border-dashed border-gray-200 rounded-3xl bg-white">
-            <p className="text-gray-400 font-bold text-lg">Nenhum lembrete cadastrado.</p>
-          </div>
-        )}
-      </div>
-
-      <LembreteModal 
-        open={modalOpen} 
-        onOpenChange={setModalOpen} 
+      <LembreteModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
         onSave={handleSalvar}
-        elders={elders} 
+        elders={elders}
         defaultElderId={selectedElderId}
       />
     </div>

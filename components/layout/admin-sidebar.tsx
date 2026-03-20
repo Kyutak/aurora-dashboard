@@ -202,11 +202,11 @@ export function AdminSidebar() {
                   <span className="text-base">Feedback</span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild className="py-3 px-4">
-                <Link href="/admin/meu-plano" className="flex items-center gap-3 cursor-pointer">
+              <DropdownMenuItem disabled className="py-3 px-4 opacity-40 cursor-not-allowed">
+                <div className="flex items-center gap-3">
                   <CreditCard className="w-5 h-5" />
                   <span className="text-base">Meu Plano</span>
-                </Link>
+                </div>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -214,7 +214,7 @@ export function AdminSidebar() {
       </div>
 
       {/* Mobile Spacer */}
-      <div className="md:hidden h-20" />
+      <div className="md:hidden h-0" />
     </>
   )
 }

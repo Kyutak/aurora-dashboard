@@ -2,33 +2,31 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { 
-  CircleDashedIcon, Pill, Utensils, Repeat, Loader2, Users, CalendarDays, CheckCircle2, FileHeart, ShieldCheck, User, Cake
-} from "lucide-react"
+import { CircleDashedIcon, Pill, Utensils, Repeat, Loader2, Users, CalendarDays, CheckCircle2, FileHeart, Plus } from "lucide-react"
 import { LembreteModal } from "@/features/reminder-modal"
 import { useToast } from "@/hooks/use-toast"
 import { CalendarTimeline } from "@/components/ui/calendar-timeline"
 import { getSessionUser, getUserLabel, SessionUser } from "@/lib/auth-state"
 import { getDailyReminders, createReminder, markReminderAsDone } from "@/service/remiders.service"
 import { elderService } from "@/service/elder.service"
-import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogPortal } from "@/components/ui/dialog"
+import { MedicalRecordSheet } from "@/features/medical-record"
+
+const TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
+  Medicamento: { icon: Pill,        color: "text-violet-500", bg: "bg-violet-50 dark:bg-violet-950/40" },
+  Refeição:    { icon: Utensils,    color: "text-amber-500",  bg: "bg-amber-50 dark:bg-amber-950/40"  },
+  Rotina:      { icon: Repeat,      color: "text-sky-500",    bg: "bg-sky-50 dark:bg-sky-950/40"      },
+  Evento:      { icon: CalendarDays,color: "text-rose-500",   bg: "bg-rose-50 dark:bg-rose-950/40"    },
+}
 
 export function SharedDashboard({ userType }: { userType: string }) {
   const { toast } = useToast()
-  const [lembretes, setLembretes] = useState<any[]>([])
-  const [elders, setElders] = useState<any[]>([])
+  const [lembretes, setLembretes]       = useState<any[]>([])
+  const [elders, setElders]             = useState<any[]>([])
   const [selectedElderId, setSelectedElderId] = useState<string>("")
-  const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<SessionUser | null>(null)
-  const [modalOpen, setModalOpen] = useState(false)
-
-  // --- ESTADOS DA FICHA MÉDICA ---
-  const [showFichaDialog, setShowFichaDialog] = useState(false)
-  const [fichaLoading, setFichaLoading] = useState(false)
-  const [fichaData, setFichaData] = useState({
-    bloodType: "", typePlanetLife: "", allergies: "", medications: "", medicalConditions: "", observations: "", emergencyContact: "", address: "", phone: ""
-  })
+  const [loading, setLoading]           = useState(true)
+  const [user, setUser]                 = useState<SessionUser | null>(null)
+  const [modalOpen, setModalOpen]       = useState(false)
+  const [showFicha, setShowFicha]       = useState(false)
 
   const carregarLembretes = useCallback(async (id: string) => {
     if (!id) return
@@ -36,11 +34,16 @@ export function SharedDashboard({ userType }: { userType: string }) {
       setLoading(true)
       const data = await getDailyReminders(id)
       setLembretes(data || [])
-    } catch (error) {
+    } catch {
       setLembretes([])
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  const recarregarIdosos = useCallback(async () => {
+    const res = await elderService.getMyElders()
+    setElders(res.data || [])
   }, [])
 
   useEffect(() => {
@@ -48,10 +51,13 @@ export function SharedDashboard({ userType }: { userType: string }) {
       const currentUser = getSessionUser()
       setUser(currentUser)
 
-      const idDoIdoso = currentUser?.elderProfileId || currentUser?.elderId || (currentUser as any)?.id || (currentUser as any)?._id;
-      const isIdoso = currentUser?.role === "IDOSO";
+      const idDoIdoso =
+        currentUser?.elderProfileId ||
+        currentUser?.elderId ||
+        (currentUser as any)?.id ||
+        (currentUser as any)?._id
 
-      if (isIdoso && idDoIdoso) {
+      if (currentUser?.role === "IDOSO" && idDoIdoso) {
         setSelectedElderId(idDoIdoso)
         carregarLembretes(idDoIdoso)
       } else {
@@ -72,302 +78,211 @@ export function SharedDashboard({ userType }: { userType: string }) {
     init()
   }, [carregarLembretes])
 
-  const handleOpenFicha = () => {
-    const idoso = elders.find(e => (e.id || e._id) === selectedElderId);
-    if (!idoso) return;
-
-    setFichaData({
-      bloodType: idoso.bloodType || "", typePlanetLife: idoso.typePlanetLife || "",
-      allergies: Array.isArray(idoso.allergies) ? idoso.allergies.join(", ") : idoso.allergies || "",
-      medications: Array.isArray(idoso.medications) ? idoso.medications.join(", ") : idoso.medications || "",
-      medicalConditions: Array.isArray(idoso.medicalConditions) ? idoso.medicalConditions.join(", ") : idoso.medicalConditions || "",
-      observations: idoso.observations || "", emergencyContact: idoso.emergencyContact || "", address: idoso.address || "", phone: idoso.phone || ""
-    });
-    setShowFichaDialog(true);
-  }
-
-  const handleSalvarFicha = async () => {
-    try {
-      setFichaLoading(true);
-      const payload = {
-        ...fichaData,
-        allergies: fichaData.allergies.split(",").map(s => s.trim()).filter(Boolean),
-        medications: fichaData.medications.split(",").map(s => s.trim()).filter(Boolean),
-        medicalConditions: fichaData.medicalConditions.split(",").map(s => s.trim()).filter(Boolean),
-      };
-      await elderService.updateMedicalRecord(selectedElderId, payload);
-      toast({ title: "✅ Ficha médica atualizada!" });
-      setShowFichaDialog(false);
-      const res = await elderService.getMyElders();
-      setElders(res.data || []);
-    } catch (error) {
-      toast({ title: "Erro ao salvar ficha", variant: "destructive" });
-    } finally {
-      setFichaLoading(false);
-    }
-  }
-
   const handleSalvarLembrete = async (dados: any) => {
     try {
-      await createReminder(dados);
-      toast({ title: "Lembrete agendado!" });
-      setModalOpen(false);
-      carregarLembretes(selectedElderId);
-    } catch (error) {
-      toast({ title: "Erro ao criar", variant: "destructive" });
+      await createReminder(dados)
+      toast({ title: "Lembrete agendado!" })
+      setModalOpen(false)
+      carregarLembretes(selectedElderId)
+    } catch {
+      toast({ title: "Erro ao criar lembrete", variant: "destructive" })
     }
-  };
+  }
 
   const handleConcluir = async (id: string) => {
     try {
-      setLembretes(prev => prev.map(l => 
-        (l.id || l._id) === id ? { ...l, done: true, isCompleted: true, concluido: true } : l
-      ))
+      setLembretes((prev) =>
+        prev.map((l) =>
+          (l.id || l._id) === id ? { ...l, done: true, isCompleted: true, concluido: true } : l
+        )
+      )
       await markReminderAsDone(id)
       toast({ title: "Tarefa concluída!" })
-    } catch (error) {
+    } catch {
       carregarLembretes(selectedElderId)
       toast({ title: "Erro ao concluir", variant: "destructive" })
     }
   }
 
-  // ORDENAÇÃO: Pendentes no topo, concluídos no fim
   const lembretesOrdenados = [...lembretes].sort((a, b) => {
-    const aConcluido = a.isCompleted || a.done || a.concluido ? 1 : 0;
-    const bConcluido = b.isCompleted || b.done || b.concluido ? 1 : 0;
-    return aConcluido - bConcluido;
-  });
+    const aConcluido = a.isCompleted || a.done || a.concluido ? 1 : 0
+    const bConcluido = b.isCompleted || b.done || b.concluido ? 1 : 0
+    return aConcluido - bConcluido
+  })
 
-  const currentElder = elders.find(e => (e.id || e._id) === selectedElderId);
+  const pendentes  = lembretesOrdenados.filter((l) => !(l.done || l.concluido || l.isCompleted))
+  const concluidos = lembretesOrdenados.filter((l) =>   l.done || l.concluido || l.isCompleted)
+
+  const currentElder = elders.find((e) => (e.id || e._id) === selectedElderId)
+  const isIdoso      = user?.role === "IDOSO"
 
   return (
-    <div className="relative min-h-screen bg-gray-100 dark:bg-gray-900">
-      <div className="absolute top-0 left-0 w-full h-[350px] bg-gradient-to-br from-blue-600 to-emerald-400" />
-      <div className="relative z-10 pt-20 pb-10 px-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-8 text-white">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center font-bold text-xl backdrop-blur-md border border-white/30">
-                {user?.name?.charAt(0)}
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">Olá, {user?.name}</h1>
-                <p className="text-sm opacity-80">{user?.role ? getUserLabel(user.role) : "Gestor"}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-               {user?.role !== "IDOSO" && selectedElderId && (
-                 <Button 
-                   onClick={handleOpenFicha}
-                   className="bg-white/20 hover:bg-white/40 backdrop-blur-md border border-white/30 rounded-xl p-2 px-3 flex gap-2 items-center text-white"
-                 >
-                   <FileHeart className="w-5 h-5 text-rose-300" />
-                   <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">Ficha</span>
-                 </Button>
-               )}
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950">
 
-              {user?.role !== "IDOSO" && elders.length > 0 && (
-                <div className="flex items-center gap-2 bg-black/20 p-2 px-4 rounded-xl backdrop-blur-md border border-white/10">
-                  <Users className="w-4 h-4" />
-                  <select 
-                    value={selectedElderId} 
-                    onChange={(e) => {
-                      setSelectedElderId(e.target.value)
-                      carregarLembretes(e.target.value)
-                    }}
-                    className="bg-transparent text-sm font-bold outline-none cursor-pointer appearance-none"
-                  >
-                    {elders.map(e => (
-                      <option key={e.id || e._id} value={e.id || e._id} className="text-black">
-                        {e.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+      {/* ── Top bar ─────────────────────────────────────────────── */}
+      <header className="bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800 shadow-sm">
+        <div className="max-w-3xl mx-auto px-6 h-20 flex items-center justify-between gap-4">
+
+          {/* Avatar + nome */}
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-11 h-11 shrink-0 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center text-white font-bold text-base shadow-md">
+              {user?.name?.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <p className="font-bold text-base text-slate-900 dark:text-white truncate leading-tight">
+                {user?.name}
+              </p>
+              <p className="text-xs text-slate-400 leading-tight mt-0.5">
+                {user?.role ? getUserLabel(user.role) : "Gestor"}
+              </p>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-zinc-950 rounded-[32px] shadow-xl p-6 min-h-[500px]">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold">Painel Diário</h2>
-                {user?.role !== "IDOSO" && (
-                  <Button onClick={() => setModalOpen(true)} className="bg-emerald-500 hover:bg-emerald-600 rounded-full">
-                    + Novo Lembrete
-                  </Button>
-                )}
+          {/* Controles direita */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {!isIdoso && selectedElderId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFicha(true)}
+                className="h-9 gap-1.5 text-sm font-medium border-slate-200 dark:border-zinc-700"
+              >
+                <FileHeart className="w-4 h-4 text-rose-400" />
+                <span className="hidden sm:inline">Ficha</span>
+              </Button>
+            )}
+
+            {!isIdoso && elders.length > 0 && (
+              <div className="flex items-center gap-2 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 h-9 bg-white dark:bg-zinc-800">
+                <Users className="w-4 h-4 text-slate-400 shrink-0" />
+                <select
+                  value={selectedElderId}
+                  onChange={(e) => {
+                    setSelectedElderId(e.target.value)
+                    carregarLembretes(e.target.value)
+                  }}
+                  className="bg-transparent font-semibold outline-none cursor-pointer text-slate-700 dark:text-slate-200 text-sm max-w-[140px]"
+                >
+                  {elders.map((e) => (
+                    <option key={e.id || e._id} value={e.id || e._id}>
+                      {e.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-
-              <CalendarTimeline />
-
-              {/* BARRA DE ROLAGEM ADICIONADA AQUI max-h-[450px] overflow-y-auto */}
-              <div className="mt-8 space-y-4 max-h-[450px] overflow-y-auto pr-3 pb-6">
-                {loading ? (
-                  <div className="flex justify-center py-10"><Loader2 className="animate-spin text-emerald-500" /></div>
-                ) : lembretesOrdenados.length > 0 ? (
-                  lembretesOrdenados.map((l) => {
-                    const isCompleted = l.done || l.concluido || l.isCompleted;
-                    return (
-                      <div 
-                        key={l.id || l._id} 
-                        className={`flex items-center gap-4 p-4 rounded-2xl border-l-4 transition-all duration-300 ${
-                          isCompleted 
-                            ? "bg-gray-100/50 dark:bg-zinc-900/40 border-gray-300 opacity-70" 
-                            : "bg-gray-50 dark:bg-zinc-900 border-emerald-500 shadow-sm hover:shadow-md"
-                        }`}
-                      >
-                        <div className={isCompleted ? "text-gray-400" : "text-emerald-500"}>
-                          {l.type === 'Medicamento' && <Pill className="w-6 h-6" />}
-                          {l.type === 'Refeição' && <Utensils className="w-6 h-6" />}
-                          {l.type === 'Rotina' && <Repeat className="w-6 h-6" />}
-                          {l.type === 'Evento' && <CalendarDays className="w-6 h-6" />}
-                        </div>
-
-                        <div className="flex-1">
-                          <p className={`font-bold transition-all ${isCompleted ? "line-through text-gray-400" : "text-gray-900 dark:text-white"}`}>
-                            {l.title}
-                          </p>
-                          <p className="text-xs text-gray-400 font-bold uppercase">{l.time} • {l.type}</p>
-                        </div>
-
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          disabled={isCompleted}
-                          onClick={() => handleConcluir(l.id || l._id)}
-                          className="rounded-full"
-                        >
-                          {isCompleted ? (
-                            <div className="bg-emerald-500 rounded-full p-1">
-                              <CheckCircle2 className="w-6 h-6 text-white" />
-                            </div>
-                          ) : (
-                            <CircleDashedIcon className="w-7 h-7 text-gray-300 hover:text-emerald-500 transition-colors" />
-                          )}
-                        </Button>
-                      </div>
-                    )
-                  })
-                ) : (
-                  <p className="text-center text-gray-400 py-10">Nenhum lembrete para hoje.</p>
-                )}
-              </div>
+            )}
           </div>
         </div>
-      </div>
+      </header>
 
-      <LembreteModal 
-        open={modalOpen} 
-        onOpenChange={setModalOpen} 
-        onSave={handleSalvarLembrete} 
-        elders={elders} 
-        defaultElderId={selectedElderId} 
+      {/* ── Conteúdo ─────────────────────────────────────────────── */}
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-4">
+
+        {/* Calendário — fora do card */}
+        <div className="px-1">
+          <CalendarTimeline />
+        </div>
+
+        {/* Card branco — Painel Diário + lembretes */}
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm px-5 py-5">
+
+          {/* Cabeçalho */}
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white">Painel Diário</h1>
+              <p className="text-sm text-slate-400 mt-0.5">
+                {pendentes.length > 0
+                  ? `${pendentes.length} tarefa${pendentes.length > 1 ? "s" : ""} pendente${pendentes.length > 1 ? "s" : ""}`
+                  : "Tudo em dia 🎉"}
+              </p>
+            </div>
+            {!isIdoso && (
+              <Button
+                onClick={() => setModalOpen(true)}
+                size="sm"
+                className="gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full shadow-sm px-4"
+              >
+                <Plus className="w-4 h-4" />
+                Novo lembrete
+              </Button>
+            )}
+          </div>
+
+          {/* Lista de lembretes */}
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="animate-spin text-emerald-500 w-6 h-6" />
+            </div>
+          ) : lembretesOrdenados.length === 0 ? (
+            <p className="text-center text-slate-400 text-sm py-10">Nenhum lembrete para hoje.</p>
+          ) : (
+            <div className="space-y-2.5 pb-2">
+              {lembretesOrdenados.map((l) => {
+                const isCompleted = l.done || l.concluido || l.isCompleted
+                const cfg  = TYPE_CONFIG[l.type] ?? TYPE_CONFIG["Rotina"]
+                const Icon = cfg.icon
+
+                return (
+                  <div
+                    key={l.id || l._id}
+                    className={`
+                      flex items-center gap-4 p-4 rounded-xl border transition-all duration-200
+                      ${isCompleted
+                        ? "bg-slate-50 dark:bg-zinc-800/50 border-slate-100 dark:border-zinc-700 opacity-55"
+                        : "bg-slate-50 dark:bg-zinc-800/40 border-slate-100 dark:border-zinc-700 hover:shadow-sm hover:-translate-y-px"
+                      }
+                    `}
+                  >
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${isCompleted ? "bg-slate-100 dark:bg-zinc-700" : cfg.bg}`}>
+                      <Icon className={`w-5 h-5 ${isCompleted ? "text-slate-400" : cfg.color}`} />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-semibold text-sm truncate ${isCompleted ? "line-through text-slate-400" : "text-slate-800 dark:text-white"}`}>
+                        {l.title}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {l.time} · {l.type}
+                      </p>
+                    </div>
+
+                    <button
+                      disabled={isCompleted}
+                      onClick={() => handleConcluir(l.id || l._id)}
+                      className="shrink-0 rounded-full focus:outline-none disabled:cursor-default"
+                      aria-label={isCompleted ? "Concluído" : "Marcar como concluído"}
+                    >
+                      {isCompleted
+                        ? <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                        : <CircleDashedIcon className="w-6 h-6 text-slate-300 hover:text-emerald-500 transition-colors" />
+                      }
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+      </main>
+
+      {/* Modais */}
+      <LembreteModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        onSave={handleSalvarLembrete}
+        elders={elders}
+        defaultElderId={selectedElderId}
       />
 
-      {/* --- MODAL DA FICHA MÉDICA MANTIDO IGUAL --- */}
-      <Dialog open={showFichaDialog} onOpenChange={setShowFichaDialog}>
-        <DialogPortal>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto z-[9999] border-none shadow-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold text-blue-600 flex items-center gap-2">
-                <FileHeart className="w-6 h-6 text-rose-500" /> Prontuário de Saúde
-              </DialogTitle>
-              <DialogDescription>
-                Paciente: <span className="font-bold text-gray-900">{currentElder?.name}</span>
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-6 py-4">
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                 <h3 className="text-[10px] font-black text-gray-400 uppercase mb-3 flex items-center gap-2">
-                  <User className="w-3 h-3" /> Dados de Registro (Somente Leitura)
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-tighter">Nome Completo</p>
-                    <p className="text-sm font-semibold text-gray-800">{currentElder?.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-tighter">Nascimento</p>
-                    <p className="text-sm font-semibold text-gray-800 flex items-center gap-1">
-                      <Cake className="w-3 h-3" />
-                      {currentElder?.birthData ? new Date(currentElder.birthData).toLocaleDateString('pt-BR') : "N/A"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="text-xs font-bold text-blue-500 uppercase tracking-wider flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4" /> Informações Médicas
-                </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-gray-700">Plano de Saúde</label>
-                    <select 
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={fichaData.typePlanetLife}
-                      onChange={(e) => setFichaData({...fichaData, typePlanetLife: e.target.value})}
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="SUS">SUS</option>
-                      <option value="Unimed">Unimed</option>
-                      <option value="Amil">Amil</option>
-                      <option value="Hapvida">Hapvida</option>
-                      <option value="Particular">Particular/Outros</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-gray-700">Tipo Sanguíneo</label>
-                    <select 
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={fichaData.bloodType}
-                      onChange={(e) => setFichaData({...fichaData, bloodType: e.target.value})}
-                    >
-                      <option value="">...</option>
-                      {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-gray-700">Contato Emergência</label>
-                    <Input value={fichaData.emergencyContact} onChange={e => setFichaData({...fichaData, emergencyContact: e.target.value})} />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-gray-700">Telefone</label>
-                    <Input value={fichaData.phone} onChange={e => setFichaData({...fichaData, phone: e.target.value})} />
-                  </div>
-
-                  <div className="space-y-1 md:col-span-2">
-                    <label className="text-sm font-semibold text-gray-700">Alergias</label>
-                    <Input placeholder="Separadas por vírgula" value={fichaData.allergies} onChange={e => setFichaData({...fichaData, allergies: e.target.value})} />
-                  </div>
-
-                  <div className="space-y-1 md:col-span-2">
-                    <label className="text-sm font-semibold text-gray-700">Medicamentos e Observações</label>
-                    <textarea 
-                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                      value={fichaData.observations}
-                      onChange={e => setFichaData({...fichaData, observations: e.target.value})}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <DialogFooter className="bg-gray-50 -mx-6 -mb-6 p-6 mt-4">
-              <Button variant="ghost" onClick={() => setShowFichaDialog(false)}>Cancelar</Button>
-              <Button onClick={handleSalvarFicha} disabled={fichaLoading} className="bg-blue-600 hover:bg-blue-700 px-10 font-bold">
-                {fichaLoading ? <Loader2 className="animate-spin mr-2" /> : "Salvar"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </DialogPortal>
-      </Dialog>
+      {showFicha && currentElder && (
+        <MedicalRecordSheet
+          open={showFicha}
+          onOpenChange={setShowFicha}
+          elder={currentElder}
+          onSaved={recarregarIdosos}
+        />
+      )}
     </div>
   )
 }

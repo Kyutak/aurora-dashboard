@@ -2,15 +2,9 @@
 
 import { useEffect } from "react"
 import { FamiliarSidebar } from "@/components/layout/familiar-sidebar"
-import { SharedEmergencias } from "@/components/emergencias"
+import { SharedEmergencias } from "@/components/Emergencias"
 
 export default function EmergenciasPage() {
-  useEffect(() => {
-    window.scrollTo({
-      top: 52,
-      behavior: "auto",
-    })
-  }, [])
 
   return (
     <div className="flex min-h-screen bg-background">

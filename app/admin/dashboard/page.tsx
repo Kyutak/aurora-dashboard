@@ -2,17 +2,10 @@
 
 import React, { useEffect, Suspense } from "react"
 import { AdminSidebar } from "@/components/layout/admin-sidebar"
-import { SharedDashboard } from "@/components/dashboard"
+import { SharedDashboard } from "@/components/Dashboard"
 import { Loader2 } from "lucide-react"
 
 export default function AdminDashboardPage() {
-  
-  useEffect(() => {
-    window.scrollTo({
-      top: 49,
-      behavior: "auto",
-    })
-  }, [])
 
   return (
     <div className="flex min-h-screen bg-background">

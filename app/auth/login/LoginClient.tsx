@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Mail, Lock, Key, User } from "lucide-react"
+import { Mail, Lock, Key, User, ArrowLeft } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -130,25 +130,35 @@ export default function LoginClient() {
 
         <CardContent className="pt-6">
           <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-            <TabsList className="grid grid-cols-2 mb-6">
-              <TabsTrigger value="email">Familiar</TabsTrigger>
-              <TabsTrigger value="idoso">Idoso</TabsTrigger>
+            <TabsList className="grid grid-cols-2 mb-6 w-full bg-emerald-50 p-1 rounded-xl">
+              <TabsTrigger
+                value="email"
+                className="rounded-lg data-[state=active]:bg-teal-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold transition-all"
+              >
+                Membro
+              </TabsTrigger>
+              <TabsTrigger
+                value="idoso"
+                className="rounded-lg data-[state=active]:bg-teal-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold transition-all"
+              >
+                Idoso
+              </TabsTrigger>
             </TabsList>
 
             {/* CONTEÚDO PARA FAMILIAR / EMAIL */}
             <TabsContent value="email">
               {step === "login" ? (
-                <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-4">
-                  <div>
+                <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-5">
+                  <div className="space-y-1.5">
                     <Label className="flex items-center gap-2"><Mail size={16} /> Email</Label>
-                    <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                    <Input type="email" placeholder="email@exemplo.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
                   </div>
-                  <div>
+                  <div className="space-y-1.5">
                     <Label className="flex items-center gap-2"><Lock size={16} /> Senha</Label>
-                    <Input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} required />
+                    <Input type="password" placeholder="••••••••" value={senha} onChange={(e) => setSenha(e.target.value)} required />
                   </div>
                   {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-                  <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700" disabled={loading}>
+                  <Button type="submit" className="w-full bg-teal-500 hover:bg-teal-400" disabled={loading}>
                     {loading ? "Enviando..." : "Entrar"}
                   </Button>
                 </form>
@@ -158,17 +168,17 @@ export default function LoginClient() {
             {/* CONTEÚDO PARA IDOSO */}
             <TabsContent value="idoso">
               {step === "login" ? (
-                <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-4">
-                  <div>
+                <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-5">
+                  <div className="space-y-1.5">
                     <Label className="flex items-center gap-2"><User size={16} /> Email do Idoso</Label>
                     <Input type="email" placeholder="Seu email cadastrado" value={email} onChange={(e) => setEmail(e.target.value)} required />
                   </div>
-                  <div>
+                  <div className="space-y-1.5">
                     <Label className="flex items-center gap-2"><Lock size={16} /> Senha</Label>
-                    <Input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} required />
+                    <Input type="password" placeholder="••••••••" value={senha} onChange={(e) => setSenha(e.target.value)} required />
                   </div>
                   {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-                  <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700" disabled={loading}>
+                  <Button type="submit" className="w-full bg-teal-500 hover:bg-teal-400" disabled={loading}>
                     {loading ? "Enviando..." : "Entrar como Idoso"}
                   </Button>
                 </form>
@@ -178,28 +188,77 @@ export default function LoginClient() {
 
           {/* STEP DE OTP (FORA DAS TABS PARA NÃO REPETIR CÓDIGO) */}
           {step === "otp" && (
-            <form onSubmit={handleCodeLogin} className="space-y-4 mt-4">
+            <form onSubmit={handleCodeLogin} className="space-y-5 mt-4">
               <Label className="flex items-center gap-2 font-bold text-teal-700">
                 <Key size={16} /> Código enviado para {email}
               </Label>
-              <Input 
-                value={codigo} 
-                onChange={(e) => setCodigo(e.target.value)} 
-                maxLength={6} 
-                className="text-center text-2xl tracking-widest font-bold border-teal-200" 
-                required 
-                autoFocus
-              />
+
+              {/* Campo OTP com 6 caixinhas */}
+              <div className="flex gap-2 justify-center">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <input
+                    key={i}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={codigo[i] ?? ""}
+                    autoFocus={i === 0}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "")
+                      const arr = codigo.split("")
+                      arr[i] = val
+                      const next = arr.join("").slice(0, 6)
+                      setCodigo(next)
+                      if (val && e.target.nextElementSibling) {
+                        (e.target.nextElementSibling as HTMLInputElement).focus()
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Backspace" && !codigo[i] && e.currentTarget.previousElementSibling) {
+                        (e.currentTarget.previousElementSibling as HTMLInputElement).focus()
+                      }
+                    }}
+                    onPaste={(e) => {
+                      e.preventDefault()
+                      const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6)
+                      setCodigo(pasted)
+                    }}
+                    className="w-11 h-14 text-center text-xl font-bold border-2 border-gray-200 rounded-xl outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all bg-gray-50"
+                  />
+                ))}
+              </div>
+
               {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-              <Button type="submit" className="w-full bg-teal-600" disabled={loading}>
-                {loading ? "Verificando..." : "Verificar Código"}
-              </Button>
-              <div className="flex flex-col gap-2">
-                <Button variant="link" type="button" onClick={resendCodeLogin} disabled={loading} className="text-teal-600">
+
+              {/* Reenviar código — abaixo do campo, sempre com underline */}
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={resendCodeLogin}
+                  disabled={loading}
+                  className="text-sm text-teal-600 underline underline-offset-2 disabled:opacity-50 hover:text-teal-800 transition-colors"
+                >
                   Reenviar código
-                </Button>
-                <Button variant="ghost" type="button" onClick={() => setStep("login")} className="text-xs">
+                </button>
+              </div>
+
+              {/* Botões Voltar + Verificar lado a lado */}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => setStep("login")}
+                  className="flex-1 flex items-center justify-center gap-2 border-teal-200 text-teal-700 hover:bg-teal-50"
+                >
+                  <ArrowLeft size={16} />
                   Voltar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-teal-600 hover:bg-teal-700"
+                >
+                  {loading ? "Verificando..." : "Verificar"}
                 </Button>
               </div>
             </form>

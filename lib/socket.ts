@@ -13,11 +13,14 @@ export const socket = io(SOCKET_URL, {
 })
 
 socket.on("nova_atividade", (dados: any) => {
+  const id = dados._id ?? dados.id ?? Date.now().toString();
+
   sharedState.addAtividade({
-    id: dados.id || Date.now().toString(),
-    usuario: dados.userName || "Usuário",
-    acao: dados.action || "Realizou uma ação",
-    tipo: dados.userType || "familiar", 
+    id: id,
+    _id: id,
+    usuario: dados.userName ?? "Usuário",
+    acao: dados.action ?? "Realizou uma ação",
+    tipo: dados.userType ?? "familiar", 
     timestamp: new Date(),
     vinculoId: dados.vinculoId
   });

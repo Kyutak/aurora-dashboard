@@ -197,6 +197,11 @@ export const sharedState = {
 
   getUsuarios: () => state.usuarios,
 
+  deleteUsuario: (id: string) => {
+    state.usuarios = state.usuarios.filter((u) => u.id !== id)
+    sharedState.notify()
+  },
+
   // 6. ATIVIDADES (Versão única e corrigida)
   getAtividades: () => state.atividades,
   

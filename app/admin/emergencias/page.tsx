@@ -2,16 +2,10 @@
 
 import  React, { useEffect } from "react"
 import { AdminSidebar } from "@/components/layout/admin-sidebar"
-import { SharedEmergencias } from "@/components/emergencias"
+import { SharedEmergencias } from "@/components/Emergencias"
 
 export default function AdminEmergenciasPage() {
-  useEffect(() => {
-    window.scrollTo({
-      top: 49,
-      behavior: "auto",
-    })
-  }, [])
-
+  
   return (
     <div className="flex min-h-screen bg-background">
       <AdminSidebar />

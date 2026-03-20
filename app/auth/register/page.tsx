@@ -89,7 +89,7 @@ export default function RegisterPage() {
         </CardHeader>
         <CardContent className="pt-6">
           <Tabs defaultValue="admin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className="grid grid-cols-2 mb-6 w-full bg-emerald-50 p-1 rounded-xl">
               <TabsTrigger value="admin">Admin</TabsTrigger>
               <TabsTrigger value="familiar">Familiar</TabsTrigger>
             </TabsList>

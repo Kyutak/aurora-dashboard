@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { AdminSidebar } from "@/components/layout/admin-sidebar"
-import { AdminPainel } from "@/components/admin-painel"
+import { AdminPainel } from "@/components/AdminPainel"
 
 export default function PainelAdminPage() {
   useEffect(() => {

@@ -2,13 +2,10 @@
 
 import { useEffect } from "react"
 import { AdminSidebar } from "@/components/layout/admin-sidebar"
-import { SharedLembretes } from "@/components/reminders" // Certifique-se que o caminho está certo
+import { SharedLembretes } from "@/components/Reminders" // Certifique-se que o caminho está certo
 
 export default function AdminLembretesPage() {
-  useEffect(() => {
-    window.scrollTo({ top: 49, behavior: "auto" })
-  }, [])
-
+  
   return (
     <div className="flex min-h-screen bg-background">
       <AdminSidebar />

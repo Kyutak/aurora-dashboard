@@ -1,7 +1,7 @@
 "use client"
 
 import { AdminSidebar } from "@/components/layout/admin-sidebar"
-import { SharedConfiguracoes } from "@/components/settings"
+import { SharedConfiguracoes } from "@/components/Settings"
 
 export default function AdminConfiguracoesPage() {
   return (

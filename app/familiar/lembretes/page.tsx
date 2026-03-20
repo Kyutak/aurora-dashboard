@@ -2,13 +2,10 @@
 
 import { useEffect } from "react"
 import { FamiliarSidebar } from "@/components/layout/familiar-sidebar"
-import { SharedLembretes } from "@/components/reminders"
+import { SharedLembretes } from "@/components/Reminders"
 
 export default function LembretesPage() {
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  }, [])
-
+  
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <FamiliarSidebar />

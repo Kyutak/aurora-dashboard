@@ -2,15 +2,16 @@
 
 import { useEffect } from "react"
 import { AdminSidebar } from "@/components/layout/admin-sidebar"
-import { AdminPersonalizacao } from "@/components/AdminCustom"
+import { SharedFeedback } from "@/components/Feedback"
+// Certifique-se que o caminho está certo
 
-export default function PersonalizacaoPage() {
+export default function Feedback() {
   
   return (
     <div className="flex min-h-screen bg-background">
       <AdminSidebar />
       <main className="flex-1 overflow-x-hidden pb-24 md:pb-8">
-        <AdminPersonalizacao />
+        <SharedFeedback />
       </main>
     </div>
   )
