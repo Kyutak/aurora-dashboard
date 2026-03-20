@@ -2,7 +2,7 @@
 
 import  React, { useEffect } from "react"
 import { AdminSidebar } from "@/components/layout/admin-sidebar"
-import { SharedEmergencias } from "@/components/Emergencias"
+import { SharedEmergencias } from "@/components/Emergencies"
 
 export default function AdminEmergenciasPage() {
   
