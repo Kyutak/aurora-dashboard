@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { AdminSidebar } from "@/components/layout/admin-sidebar"
-import { SharedLembretes } from "@/components/Reminders" // Certifique-se que o caminho está certo
+import { SharedLembretes } from "@/components/Reminders"
 
 export default function AdminLembretesPage() {
   

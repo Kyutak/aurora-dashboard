@@ -3,7 +3,6 @@
 import { useEffect } from "react"
 import { AdminSidebar } from "@/components/layout/admin-sidebar"
 import { SharedFeedback } from "@/components/Feedback"
-// Certifique-se que o caminho está certo
 
 export default function Feedback() {
   

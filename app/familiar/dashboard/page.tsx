@@ -1,5 +1,4 @@
 "use client"
-import { useEffect } from "react"
 import { FamiliarSidebar } from "@/components/layout/familiar-sidebar"
 import { SharedDashboard } from "@/components/Dashboard"
 
